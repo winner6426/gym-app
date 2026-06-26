@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.member;
 
 import com.app.dto.card.CardResponse;
 import com.app.dto.registration.RefundInfo;

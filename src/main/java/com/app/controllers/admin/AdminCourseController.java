@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.admin;
 
 import com.app.dto.course.CourseRequest;
 import com.app.dto.course.CourseResponse;
@@ -18,9 +18,7 @@ public class AdminCourseController {
     private final CourseService courseService;
 
     @GetMapping
-    public List<CourseResponse> getAll(
-            @RequestParam(required = false) Boolean active) {
-
+    public List<CourseResponse> getAll(@RequestParam(required = false) Boolean active) {
         return courseService.getAll(active);
     }
 
@@ -30,9 +28,7 @@ public class AdminCourseController {
     }
 
     @PostMapping
-    public ResponseEntity<CourseResponse> create(
-            @RequestBody CourseRequest request) {
-
+    public ResponseEntity<CourseResponse> create(@RequestBody CourseRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(courseService.create(request));
     }
@@ -41,7 +37,6 @@ public class AdminCourseController {
     public CourseResponse update(
             @PathVariable Long id,
             @RequestBody CourseRequest request) {
-
         return courseService.update(id, request);
     }
 
@@ -49,7 +44,6 @@ public class AdminCourseController {
     public CourseResponse setActive(
             @PathVariable Long id,
             @RequestParam boolean active) {
-
         return courseService.setActive(id, active);
     }
 }

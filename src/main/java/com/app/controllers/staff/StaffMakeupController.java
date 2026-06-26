@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.staff;
 
 import com.app.dto.makeup.*;
 import com.app.service.MakeupService;

@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.admin;
 
 import com.app.dto.user.CreateUserRequest;
 import com.app.dto.user.ResetUserPasswordRequest;

@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.staff;
 
 import com.app.dto.card.CardResponse;
 import com.app.dto.payment.PaymentCollectionResponse;
@@ -24,8 +24,7 @@ public class StaffPaymentController {
     }
 
     @PostMapping("/record")
-    public PaymentCollectionResponse record(
-            @RequestBody RecordPaymentRequest request) {
+    public PaymentCollectionResponse record(@RequestBody RecordPaymentRequest request) {
         return paymentService.record(request);
     }
 

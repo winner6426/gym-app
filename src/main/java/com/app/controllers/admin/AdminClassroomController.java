@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.admin;
 
 import com.app.dto.classroom.ClassroomRequest;
 import com.app.dto.classroom.ClassroomResponse;
@@ -32,7 +32,6 @@ public class AdminClassroomController {
             @RequestParam(required = false) Long centerId,
             @RequestParam(required = false) Long courseId,
             @RequestParam(required = false) ClassroomStatus status) {
-
         return classroomService.getAll(centerId, courseId, status);
     }
 
@@ -47,9 +46,7 @@ public class AdminClassroomController {
     }
 
     @PostMapping
-    public ResponseEntity<ClassroomResponse> create(
-            @RequestBody ClassroomRequest request) {
-
+    public ResponseEntity<ClassroomResponse> create(@RequestBody ClassroomRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(classroomService.create(request));
     }
@@ -58,7 +55,6 @@ public class AdminClassroomController {
     public ClassroomResponse update(
             @PathVariable Long id,
             @RequestBody ClassroomRequest request) {
-
         return classroomService.update(id, request);
     }
 
@@ -66,7 +62,6 @@ public class AdminClassroomController {
     public ClassroomResponse setStatus(
             @PathVariable Long id,
             @RequestParam ClassroomStatus status) {
-
         return classroomService.setStatus(id, status);
     }
 }

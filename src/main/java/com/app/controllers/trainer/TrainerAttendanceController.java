@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.trainer;
 
 import com.app.dto.attendance.AttendanceRequest;
 import com.app.dto.attendance.AttendanceResponse;
@@ -27,11 +27,7 @@ public class TrainerAttendanceController {
             @PathVariable Long classroomId,
             @RequestParam Long trainerId,
             @RequestParam(required = false) LocalDate date) {
-        return attendanceService.getClassroomStudents(
-                trainerId,
-                classroomId,
-                date
-        );
+        return attendanceService.getClassroomStudents(trainerId, classroomId, date);
     }
 
     @PostMapping("/classrooms/{classroomId}/attendances")

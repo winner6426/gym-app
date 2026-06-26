@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.member;
 
 import com.app.dto.registration.CreateRegistrationRequest;
 import com.app.dto.registration.RegistrationResponse;

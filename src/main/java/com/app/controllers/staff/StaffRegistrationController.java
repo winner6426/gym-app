@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.staff;
 
 import com.app.dto.registration.ProcessRegistrationRequest;
 import com.app.dto.registration.RegistrationResponse;

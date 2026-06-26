@@ -1,8 +1,7 @@
-package com.app.controllers;
+package com.app.controllers.admin;
 
 import com.app.dto.center.CenterRequest;
 import com.app.dto.center.CenterResponse;
-import com.app.models.Center;
 import com.app.service.CenterService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,7 +35,6 @@ public class AdminCenterController {
     public CenterResponse update(
             @PathVariable Long id,
             @RequestBody CenterRequest request) {
-
         return centerService.update(id, request);
     }
 

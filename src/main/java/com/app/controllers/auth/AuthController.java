@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.auth;
 
 import com.app.dto.auth.AuthResponse;
 import com.app.dto.auth.LoginRequest;

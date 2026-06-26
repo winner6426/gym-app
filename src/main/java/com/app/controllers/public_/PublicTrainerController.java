@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.public_;
 
 import com.app.dto.user.UserResponse;
 import com.app.models.Role;

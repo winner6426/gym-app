@@ -1,4 +1,4 @@
-package com.app.controllers;
+package com.app.controllers.public_;
 
 import com.app.dto.classroom.ClassroomResponse;
 import com.app.service.ClassroomService;
