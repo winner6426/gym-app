@@ -2,8 +2,10 @@ package com.app.service;
 
 import com.app.dto.payment.PaymentCollectionResponse;
 import com.app.dto.payment.RecordPaymentRequest;
+import com.app.dto.registration.RefundInfo;
 import com.app.exception.ResourceNotFoundException;
 import com.app.models.*;
+import com.app.repository.CardRepository;
 import com.app.repository.PaymentRepository;
 import com.app.repository.RegistrationRepository;
 import com.app.repository.UserRepository;
@@ -34,6 +36,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final RegistrationRepository registrationRepository;
     private final UserRepository userRepository;
+    private final CardRepository cardRepository;
 
     @Transactional
     public List<PaymentCollectionResponse> getCollectibleRegistrations() {
@@ -177,6 +180,13 @@ public class PaymentService {
     private PaymentCollectionResponse toResponse(
             Payment payment,
             Registration registration) {
+        Card card = cardRepository.findByRegistration(registration).orElse(null);
+        Classroom classroom = resolveCurrentClassroom(registration, card);
+        Course course = card != null && card.getCourse() != null
+                ? card.getCourse()
+                : classroom.getCourse();
+        RefundInfo refundInfo = card == null ? null : calculateRefundInfo(card, payment);
+
         return PaymentCollectionResponse.builder()
                 .paymentId(payment.getId())
                 .registrationId(registration.getId())
@@ -185,15 +195,17 @@ public class PaymentService {
                 .studentName(registration.getUser().getName())
                 .studentEmail(registration.getUser().getEmail())
                 .studentPhone(registration.getUser().getPhoneNumber())
-                .classroomCode(registration.getClassroom().getCode())
-                .classroomName(registration.getClassroom().getName())
-                .courseName(registration.getClassroom().getCourse().getName())
-                .centerName(registration.getClassroom().getCenter().getName())
+                .classroomCode(classroom.getCode())
+                .classroomName(classroom.getName())
+                .courseName(course.getName())
+                .centerName(classroom.getCenter().getName())
                 .originalAmount(payment.getOriginalAmount())
                 .discountPercent(payment.getDiscountPercent())
                 .discountAmount(payment.getDiscountAmount())
                 .finalAmount(payment.getFinalAmount())
                 .paidAmount(payment.getPaidAmount())
+                .refundPercent(refundInfo == null ? null : refundInfo.getRefundPercent())
+                .refundAmount(refundInfo == null ? null : refundInfo.getRefundAmount())
                 .remainingAmount(payment.getFinalAmount().subtract(payment.getPaidAmount()))
                 .paymentStatus(payment.getStatus())
                 .paymentMethod(payment.getPaymentMethod())
@@ -202,6 +214,37 @@ public class PaymentService {
                 .collectedByName(payment.getCollectedBy() == null
                         ? null
                         : payment.getCollectedBy().getName())
+                .build();
+    }
+
+    private Classroom resolveCurrentClassroom(Registration registration, Card card) {
+        return card != null && card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : registration.getClassroom();
+    }
+
+    private RefundInfo calculateRefundInfo(Card card, Payment payment) {
+        int totalSession = Math.max(card.getSession(), 0);
+        int remainingSession = Math.max(card.getRemainingSession(), 0);
+        int usedSession = Math.max(totalSession - remainingSession, 0);
+        BigDecimal refundPercent;
+
+        if (totalSession == 0 || usedSession == 0) {
+            refundPercent = BigDecimal.valueOf(100);
+        } else if (usedSession * 2 <= totalSession) {
+            refundPercent = BigDecimal.valueOf(50);
+        } else {
+            refundPercent = BigDecimal.ZERO;
+        }
+
+        BigDecimal paidAmount = payment == null ? BigDecimal.ZERO : payment.getPaidAmount();
+        BigDecimal refundAmount = paidAmount
+                .multiply(refundPercent)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+        return RefundInfo.builder()
+                .refundPercent(refundPercent)
+                .refundAmount(refundAmount)
                 .build();
     }
 

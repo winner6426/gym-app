@@ -54,6 +54,11 @@ public class UserService {
         return toResponse(findUser(id));
     }
 
+    @Transactional(readOnly = true)
+    public UserResponse getByEmail(String email) {
+        return toResponse(findUserByEmail(email));
+    }
+
     @Transactional
     public UserResponse create(CreateUserRequest request) {
         validateCreateRequest(request);
@@ -81,6 +86,21 @@ public class UserService {
         String phone = request.getPhoneNumber().trim();
         ensureEmailAvailable(email, id);
         ensurePhoneAvailable(phone, id);
+
+        user.setEmail(email);
+        user.setName(request.getName().trim());
+        user.setPhoneNumber(phone);
+        return toResponse(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserResponse updateByEmail(String currentEmail, UpdateUserRequest request) {
+        validateUpdateRequest(request);
+        User user = findUserByEmail(currentEmail);
+        String email = normalizeEmail(request.getEmail());
+        String phone = request.getPhoneNumber().trim();
+        ensureEmailAvailable(email, user.getId());
+        ensurePhoneAvailable(phone, user.getId());
 
         user.setEmail(email);
         user.setName(request.getName().trim());
@@ -159,6 +179,13 @@ public class UserService {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Không tìm thấy người dùng có id: " + id
+                ));
+    }
+
+    private User findUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy người dùng có email: " + email
                 ));
     }
 

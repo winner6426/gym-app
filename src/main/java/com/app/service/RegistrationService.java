@@ -106,6 +106,7 @@ public class RegistrationService {
         }
         return registrationRepository.findByUserIdOrderByRegistrationDateDescIdDesc(userId)
                 .stream()
+                .filter(registration -> registration.getStatus() != RegistrationStatus.CANCELLED)
                 .map(this::toResponse)
                 .toList();
     }
@@ -166,6 +167,7 @@ public class RegistrationService {
         return registrationRepository.findAllByOrderByRegistrationDateDescIdDesc()
                 .stream()
                 .filter(item -> status == null || item.getStatus() == status)
+                .filter(item -> item.getStatus() != RegistrationStatus.CANCELLED)
                 .map(this::toResponse)
                 .toList();
     }
@@ -232,6 +234,10 @@ public class RegistrationService {
         ));
         registration.setContactedAt(LocalDateTime.now());
         card.setStatus("CANCELLED");
+        Classroom currentClassroom = card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : registration.getClassroom();
+        currentClassroom.setCurrentCapacity(Math.max(0, currentClassroom.getCurrentCapacity() - 1));
         payment.setStatus(refundInfo.getRefundAmount().compareTo(BigDecimal.ZERO) > 0
                 ? PaymentStatus.REFUNDED
                 : PaymentStatus.CANCELLED);
@@ -239,14 +245,17 @@ public class RegistrationService {
         payment.setCollectedBy(staff);
 
         cardRepository.save(card);
+        classroomRepository.save(currentClassroom);
         paymentRepository.save(payment);
         return toResponse(registrationRepository.save(registration));
     }
 
     private RegistrationResponse toResponse(Registration registration) {
-        Classroom classroom = registration.getClassroom();
-        User member = registration.getUser();
         Card card = cardRepository.findByRegistration(registration).orElse(null);
+        Classroom classroom = card != null && card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : registration.getClassroom();
+        User member = registration.getUser();
         Payment payment = paymentRepository.findByRegistration(registration).orElse(null);
         RefundInfo refundInfo = card == null ? null : calculateRefundInfo(card, payment);
         List<AvailabilityResponse> availabilities =

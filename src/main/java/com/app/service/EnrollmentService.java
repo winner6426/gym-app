@@ -78,8 +78,11 @@ public class EnrollmentService {
 
         Card card = Card.builder()
                 .registration(registration)
+                .course(classroom.getCourse())
+                .currentClassroom(classroom)
                 .session(totalSession)
                 .remainingSession(totalSession)
+                .classroomSessionOffset(0)
                 .issuedDate(issuedDate)
                 .expiredDate(expiredDate)
                 .status("ACTIVE")
@@ -95,7 +98,7 @@ public class EnrollmentService {
 
     private CardResponse toResponse(Card card) {
         Registration registration = card.getRegistration();
-        Classroom classroom = registration.getClassroom();
+        Classroom classroom = resolveCurrentClassroom(card);
 
         return CardResponse.builder()
                 .id(card.getId())
@@ -107,6 +110,7 @@ public class EnrollmentService {
                 .classroomId(classroom.getId())
                 .classroomCode(classroom.getCode())
                 .classroomName(classroom.getName())
+                .courseId(card.getCourse() == null ? classroom.getCourse().getId() : card.getCourse().getId())
                 .courseName(classroom.getCourse().getName())
                 .level(classroom.getCourse().getLevel())
                 .centerName(classroom.getCenter().getName())
@@ -114,9 +118,16 @@ public class EnrollmentService {
                 .trainerName(classroom.getTrainer().getName())
                 .session(card.getSession())
                 .remainingSession(card.getRemainingSession())
+                .classroomSessionOffset(card.getClassroomSessionOffset())
                 .issuedDate(card.getIssuedDate())
                 .expiredDate(card.getExpiredDate())
                 .status(card.getStatus())
                 .build();
+    }
+
+    private Classroom resolveCurrentClassroom(Card card) {
+        return card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : card.getRegistration().getClassroom();
     }
 }

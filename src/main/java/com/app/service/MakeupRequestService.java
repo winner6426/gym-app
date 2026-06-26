@@ -8,20 +8,28 @@ import com.app.models.Attendance;
 import com.app.models.Card;
 import com.app.models.Classroom;
 import com.app.models.ClassroomStatus;
+import com.app.models.Course;
 import com.app.models.MakeupRequest;
 import com.app.models.Registration;
+import com.app.models.RegistrationStatus;
+import com.app.models.Schedule;
 import com.app.repository.AttendanceRepository;
 import com.app.repository.CardRepository;
 import com.app.repository.ClassroomRepository;
 import com.app.repository.MakeupRequestRepository;
+import com.app.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +40,7 @@ public class MakeupRequestService {
     private final ClassroomRepository classroomRepository;
     private final AttendanceRepository attendanceRepository;
     private final ClassroomService classroomService;
+    private final ScheduleRepository scheduleRepository;
 
     @Transactional(readOnly = true)
     public List<MakeupRequestResponse> getMyRequests(Long userId) {
@@ -40,6 +49,7 @@ public class MakeupRequestService {
         }
         return makeupRequestRepository.findByRegistrationUserIdOrderByCreatedAtDescIdDesc(userId)
                 .stream()
+                .filter(this::isVisibleRequest)
                 .map(this::toResponse)
                 .toList();
     }
@@ -51,6 +61,7 @@ public class MakeupRequestService {
                 .stream()
                 .filter(request -> normalizedStatus.isBlank()
                         || normalizedStatus.equalsIgnoreCase(request.getStatus()))
+                .filter(this::isVisibleRequest)
                 .sorted((first, second) -> {
                     int createdCompare = second.getCreatedAt().compareTo(first.getCreatedAt());
                     return createdCompare != 0 ? createdCompare : second.getId().compareTo(first.getId());
@@ -73,28 +84,39 @@ public class MakeupRequestService {
         if (!"ACTIVE".equalsIgnoreCase(card.getStatus()) || card.getRemainingSession() <= 0) {
             throw new IllegalArgumentException("Thẻ học viên phải đang hoạt động và còn buổi tập.");
         }
+        if (card.getRegistration().getStatus() == RegistrationStatus.CANCELLED) {
+            throw new IllegalArgumentException("Lớp học đã hủy không thể xin học bù.");
+        }
 
         Registration registration = card.getRegistration();
-        Classroom sourceClassroom = registration.getClassroom();
+        Classroom sourceClassroom = resolveCurrentClassroom(card);
         Classroom targetClassroom = classroomRepository.findById(request.getTargetClassroomId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Không tìm thấy lớp học bù có id: " + request.getTargetClassroomId()
                 ));
 
-        validateTargetClassroom(sourceClassroom, targetClassroom);
+        validateAbsenceDate(card, sourceClassroom, request.getAbsenceDate());
+        validateTargetClassroom(card, sourceClassroom, targetClassroom);
         validateMonthlyLimit(request.getUserId(), request.getAbsenceDate());
 
         Attendance attendance = attendanceRepository
-                .findByClassroomIdAndStudentIdAndAttendanceDate(
+                .findByCardIdAndClassroomIdAndAttendanceDate(
+                        card.getId(),
+                        sourceClassroom.getId(),
+                        request.getAbsenceDate()
+                )
+                .or(() -> attendanceRepository.findByClassroomIdAndStudentIdAndAttendanceDate(
                         sourceClassroom.getId(),
                         request.getUserId(),
                         request.getAbsenceDate()
-                )
+                ))
                 .orElseGet(() -> Attendance.builder()
                         .student(registration.getUser())
                         .classroom(sourceClassroom)
+                        .card(card)
                         .attendanceDate(request.getAbsenceDate())
                         .build());
+        attendance.setCard(card);
         attendance.setStatus("ABSENT");
         attendanceRepository.save(attendance);
 
@@ -157,12 +179,12 @@ public class MakeupRequestService {
         }
     }
 
-    private void validateTargetClassroom(Classroom sourceClassroom, Classroom targetClassroom) {
+    private void validateTargetClassroom(Card card, Classroom sourceClassroom, Classroom targetClassroom) {
         if (targetClassroom.getId().equals(sourceClassroom.getId())) {
             throw new IllegalArgumentException("Lớp học bù phải khác lớp hiện tại.");
         }
-        if (targetClassroom.getCourse().getLevel() != sourceClassroom.getCourse().getLevel()) {
-            throw new IllegalArgumentException("Lớp học bù phải cùng trình độ với lớp hiện tại.");
+        if (!targetClassroom.getCourse().getId().equals(resolveCourse(card).getId())) {
+            throw new IllegalArgumentException("Lớp học bù phải thuộc cùng khóa học.");
         }
         if (targetClassroom.getCurrentCapacity() >= targetClassroom.getMaxCapacity()) {
             throw new IllegalArgumentException("Lớp học bù đã đủ sĩ số.");
@@ -188,9 +210,9 @@ public class MakeupRequestService {
 
     private MakeupRequestResponse toResponse(MakeupRequest makeupRequest) {
         Registration registration = makeupRequest.getRegistration();
-        Classroom sourceClassroom = registration.getClassroom();
         Classroom targetClassroom = makeupRequest.getTargetClassroom();
         Card card = cardRepository.findByRegistration(registration).orElse(null);
+        Classroom sourceClassroom = card == null ? registration.getClassroom() : resolveCurrentClassroom(card);
 
         return MakeupRequestResponse.builder()
                 .id(makeupRequest.getId())
@@ -212,5 +234,64 @@ public class MakeupRequestService {
 
     private String cleanText(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private Classroom resolveCurrentClassroom(Card card) {
+        return card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : card.getRegistration().getClassroom();
+    }
+
+    private Course resolveCourse(Card card) {
+        return card.getCourse() != null
+                ? card.getCourse()
+                : resolveCurrentClassroom(card).getCourse();
+    }
+
+    private boolean isVisibleRequest(MakeupRequest request) {
+        if (request.getRegistration().getStatus() == RegistrationStatus.CANCELLED) {
+            return false;
+        }
+        return cardRepository.findByRegistration(request.getRegistration())
+                .map(card -> !"CANCELLED".equalsIgnoreCase(card.getStatus()))
+                .orElse(true);
+    }
+
+    private void validateAbsenceDate(Card card, Classroom sourceClassroom, LocalDate absenceDate) {
+
+        List<LocalDate> studyDates = buildStudyDates(sourceClassroom);
+        int dateIndex = studyDates.indexOf(absenceDate);
+        if (dateIndex < 0 || dateIndex < getClassroomSessionOffset(card)) {
+            throw new IllegalArgumentException("Ngày báo nghỉ phải thuộc lịch tập của lớp hiện tại.");
+        }
+    }
+
+    private int getClassroomSessionOffset(Card card) {
+        return card.getClassroomSessionOffset() == null ? 0 : card.getClassroomSessionOffset();
+    }
+
+    private List<LocalDate> buildStudyDates(Classroom classroom) {
+        if (classroom.getStartDate() == null || classroom.getCourse().getSession() == null) {
+            return List.of();
+        }
+
+        Set<DayOfWeek> studyDays = scheduleRepository.findByClassroomId(classroom.getId())
+                .stream()
+                .map(Schedule::getDayOfWeek)
+                .collect(Collectors.toSet());
+        if (studyDays.isEmpty()) {
+            return List.of();
+        }
+
+        int totalSessions = classroom.getCourse().getSession();
+        List<LocalDate> dates = new ArrayList<>(totalSessions);
+        LocalDate cursor = classroom.getStartDate();
+        while (dates.size() < totalSessions) {
+            if (studyDays.contains(cursor.getDayOfWeek())) {
+                dates.add(cursor);
+            }
+            cursor = cursor.plusDays(1);
+        }
+        return dates;
     }
 }

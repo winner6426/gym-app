@@ -26,4 +26,8 @@ public class Attendance {
     @ManyToOne
     @JoinColumn(name = "classroom_id")
     private Classroom classroom;
+
+    @ManyToOne
+    @JoinColumn(name = "card_id")
+    private Card card;
 }

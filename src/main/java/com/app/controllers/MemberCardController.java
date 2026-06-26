@@ -5,10 +5,12 @@ import com.app.dto.registration.RefundInfo;
 import com.app.dto.registration.RegistrationResponse;
 import com.app.models.Card;
 import com.app.models.Classroom;
+import com.app.models.ClassroomStatus;
 import com.app.models.Payment;
 import com.app.models.Registration;
 import com.app.repository.CardRepository;
 import com.app.repository.PaymentRepository;
+import com.app.service.ClassroomService;
 import com.app.service.RegistrationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +30,7 @@ public class MemberCardController {
     private final CardRepository cardRepository;
     private final PaymentRepository paymentRepository;
     private final RegistrationService registrationService;
+    private final ClassroomService classroomService;
 
     @GetMapping
     public List<CardResponse> getMyCards(@RequestParam Long userId) {
@@ -36,6 +39,7 @@ public class MemberCardController {
                 .stream()
                 .filter(card -> !"CANCELLED".equals(card.getStatus()))
                 .filter(card -> card.getRegistration().getStatus() != com.app.models.RegistrationStatus.CANCELLED)
+                .filter(this::isClassroomStillAvailable)
                 .map(this::toResponse)
                 .toList();
     }
@@ -49,7 +53,9 @@ public class MemberCardController {
 
     private CardResponse toResponse(Card card) {
         Registration registration = card.getRegistration();
-        Classroom classroom = registration.getClassroom();
+        Classroom classroom = card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : registration.getClassroom();
         Payment payment = paymentRepository.findByRegistration(registration).orElse(null);
         RefundInfo refundInfo = registrationService.calculateRefundInfo(card, payment);
 
@@ -63,6 +69,7 @@ public class MemberCardController {
                 .classroomId(classroom.getId())
                 .classroomCode(classroom.getCode())
                 .classroomName(classroom.getName())
+                .courseId(card.getCourse() == null ? classroom.getCourse().getId() : card.getCourse().getId())
                 .courseName(classroom.getCourse().getName())
                 .level(classroom.getCourse().getLevel())
                 .centerName(classroom.getCenter().getName())
@@ -70,6 +77,7 @@ public class MemberCardController {
                 .trainerName(classroom.getTrainer().getName())
                 .session(card.getSession())
                 .remainingSession(card.getRemainingSession())
+                .classroomSessionOffset(card.getClassroomSessionOffset())
                 .issuedDate(card.getIssuedDate())
                 .expiredDate(card.getExpiredDate())
                 .status(card.getStatus())
@@ -79,5 +87,14 @@ public class MemberCardController {
                 .refundAmount(refundInfo.getRefundAmount())
                 .refundPolicyMessage(refundInfo.getMessage())
                 .build();
+    }
+
+    private boolean isClassroomStillAvailable(Card card) {
+        Classroom classroom = card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : card.getRegistration().getClassroom();
+        ClassroomStatus status = classroomService.resolveStatus(classroom);
+        return status != ClassroomStatus.COMPLETED
+                && status != ClassroomStatus.CANCELLED;
     }
 }

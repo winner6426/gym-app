@@ -30,6 +30,8 @@ public class PaymentCollectionResponse {
     private BigDecimal discountAmount;
     private BigDecimal finalAmount;
     private BigDecimal paidAmount;
+    private BigDecimal refundPercent;
+    private BigDecimal refundAmount;
     private BigDecimal remainingAmount;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;

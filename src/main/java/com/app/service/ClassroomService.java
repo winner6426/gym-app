@@ -5,6 +5,7 @@ import com.app.dto.classroom.ClassroomResponse;
 import com.app.dto.classroom.ScheduleRequest;
 import com.app.dto.classroom.ScheduleResponse;
 import com.app.dto.classroom.TrainerOptionResponse;
+import com.app.dto.card.CardResponse;
 import com.app.exception.DuplicateResourceException;
 import com.app.exception.ResourceNotFoundException;
 import com.app.models.Center;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -92,10 +94,10 @@ public class ClassroomService {
         }
 
         Set<Long> currentClassroomIds = cards.stream()
-                .map(card -> card.getRegistration().getClassroom().getId())
+                .map(card -> resolveCurrentClassroom(card).getId())
                 .collect(java.util.stream.Collectors.toSet());
-        Set<com.app.models.Level> availableLevels = cards.stream()
-                .map(card -> card.getRegistration().getClassroom().getCourse().getLevel())
+        Set<Long> availableCourseIds = cards.stream()
+                .map(card -> resolveCourse(card).getId())
                 .collect(java.util.stream.Collectors.toSet());
         String provinceFilter = province == null ? "" : province.trim();
 
@@ -106,7 +108,10 @@ public class ClassroomService {
                             || computedStatus == ClassroomStatus.IN_PROGRESS;
                 })
                 .filter(classroom -> !currentClassroomIds.contains(classroom.getId()))
-                .filter(classroom -> availableLevels.contains(classroom.getCourse().getLevel()))
+                .filter(classroom -> availableCourseIds.contains(classroom.getCourse().getId()))
+                .filter(classroom -> cards.stream()
+                        .anyMatch(card -> classroom.getCourse().getId().equals(resolveCourse(card).getId())
+                                && canContinueInClassroom(card, classroom)))
                 .filter(classroom -> classroom.getCurrentCapacity() < classroom.getMaxCapacity())
                 .filter(classroom -> provinceFilter.isBlank()
                         || classroom.getCenter().getProvince().equalsIgnoreCase(provinceFilter))
@@ -116,6 +121,59 @@ public class ClassroomService {
                         .thenComparing(Classroom::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional
+    public CardResponse transferCardToClassroom(Long userId, Long cardId, Long targetClassroomId) {
+        if (userId == null || cardId == null || targetClassroomId == null) {
+            throw new IllegalArgumentException("Thieu thong tin hoc vien, the hoc hoac lop muon chuyen.");
+        }
+
+        Card card = cardRepository.findById(cardId)
+                .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay the hoc vien co id: " + cardId));
+        if (!card.getRegistration().getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("The hoc vien khong thuoc tai khoan hien tai.");
+        }
+        if (!"ACTIVE".equalsIgnoreCase(card.getStatus()) || card.getRemainingSession() <= 0) {
+            throw new IllegalArgumentException("Chi the dang hoat dong va con buoi moi co the chuyen lop.");
+        }
+
+        Classroom currentClassroom = resolveCurrentClassroom(card);
+        Classroom targetClassroom = findClassroom(targetClassroomId);
+        Course currentCourse = resolveCourse(card);
+
+        if (targetClassroom.getId().equals(currentClassroom.getId())) {
+            throw new IllegalArgumentException("Lop moi phai khac lop hien tai.");
+        }
+        if (!targetClassroom.getCourse().getId().equals(currentCourse.getId())) {
+            throw new IllegalArgumentException("Chi duoc chuyen sang lop khac trong cung khoa hoc.");
+        }
+        ClassroomStatus targetStatus = resolveStatus(targetClassroom);
+        if (targetStatus != ClassroomStatus.RECRUITING && targetStatus != ClassroomStatus.IN_PROGRESS) {
+            throw new IllegalArgumentException("Lop muon chuyen khong con nhan hoc vien.");
+        }
+        if (targetClassroom.getCurrentCapacity() >= targetClassroom.getMaxCapacity()) {
+            throw new IllegalArgumentException("Lop muon chuyen da du si so.");
+        }
+
+        int effectiveSessionOffset = calculateEffectiveSessionOffset(card, targetClassroom);
+        if (!canContinueInClassroom(card, targetClassroom)) {
+            throw new IllegalArgumentException("Lop muon chuyen khong con ngay hoc phu hop voi so buoi da hoc.");
+        }
+
+        currentClassroom.setCurrentCapacity(Math.max(0, currentClassroom.getCurrentCapacity() - 1));
+        targetClassroom.setCurrentCapacity(targetClassroom.getCurrentCapacity() + 1);
+        card.setCourse(currentCourse);
+        card.setCurrentClassroom(targetClassroom);
+        card.setClassroomSessionOffset(effectiveSessionOffset);
+        card.setRemainingSession(card.getSession() - effectiveSessionOffset);
+        if (targetClassroom.getEndDate() != null) {
+            card.setExpiredDate(targetClassroom.getEndDate());
+        }
+
+        classroomRepository.save(currentClassroom);
+        classroomRepository.save(targetClassroom);
+        return toCardResponse(cardRepository.save(card));
     }
 
     @Transactional(readOnly = true)
@@ -184,9 +242,18 @@ public class ClassroomService {
             );
         }
 
+        Course nextCourse = findActiveCourse(request.getCourseId());
+        if (!classroom.getCourse().getId().equals(nextCourse.getId())
+                && classroom.getCurrentCapacity() != null
+                && classroom.getCurrentCapacity() > 0) {
+            throw new IllegalArgumentException(
+                    "Khong the doi khoa hoc cua lop da co hoc vien."
+            );
+        }
+
         classroom.setCode(code);
         classroom.setName(request.getName().trim());
-        classroom.setCourse(findActiveCourse(request.getCourseId()));
+        classroom.setCourse(nextCourse);
         classroom.setCenter(findCenter(request.getCenterId()));
         classroom.setTrainer(findTrainer(request.getTrainerId()));
         classroom.setRecruitmentStartDate(request.getRecruitmentStartDate());
@@ -388,5 +455,90 @@ public class ClassroomService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private Classroom resolveCurrentClassroom(Card card) {
+        return card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : card.getRegistration().getClassroom();
+    }
+
+    private Course resolveCourse(Card card) {
+        return card.getCourse() != null
+                ? card.getCourse()
+                : resolveCurrentClassroom(card).getCourse();
+    }
+
+    private CardResponse toCardResponse(Card card) {
+        Classroom classroom = resolveCurrentClassroom(card);
+        return CardResponse.builder()
+                .id(card.getId())
+                .registrationId(card.getRegistration().getId())
+                .studentId(card.getRegistration().getUser().getId())
+                .studentName(card.getRegistration().getUser().getName())
+                .studentEmail(card.getRegistration().getUser().getEmail())
+                .studentPhone(card.getRegistration().getUser().getPhoneNumber())
+                .classroomId(classroom.getId())
+                .classroomCode(classroom.getCode())
+                .classroomName(classroom.getName())
+                .courseId(resolveCourse(card).getId())
+                .courseName(resolveCourse(card).getName())
+                .level(resolveCourse(card).getLevel())
+                .centerName(classroom.getCenter().getName())
+                .province(classroom.getCenter().getProvince())
+                .trainerName(classroom.getTrainer().getName())
+                .session(card.getSession())
+                .remainingSession(card.getRemainingSession())
+                .classroomSessionOffset(card.getClassroomSessionOffset())
+                .issuedDate(card.getIssuedDate())
+                .expiredDate(card.getExpiredDate())
+                .status(card.getStatus())
+                .registrationStatus(card.getRegistration().getStatus().name())
+                .build();
+    }
+
+    private List<LocalDate> buildStudyDates(Classroom classroom) {
+        if (classroom.getStartDate() == null || classroom.getCourse().getSession() == null) {
+            return List.of();
+        }
+
+        Set<DayOfWeek> studyDays = scheduleRepository.findByClassroomId(classroom.getId())
+                .stream()
+                .map(Schedule::getDayOfWeek)
+                .collect(java.util.stream.Collectors.toSet());
+        if (studyDays.isEmpty()) {
+            return List.of();
+        }
+
+        int totalSessions = classroom.getCourse().getSession();
+        List<LocalDate> dates = new ArrayList<>(totalSessions);
+        LocalDate cursor = classroom.getStartDate();
+        while (dates.size() < totalSessions) {
+            if (studyDays.contains(cursor.getDayOfWeek())) {
+                dates.add(cursor);
+            }
+            cursor = cursor.plusDays(1);
+        }
+        return dates;
+    }
+
+    private int countCompletedSessions(List<LocalDate> studyDates) {
+        LocalDate today = LocalDate.now();
+        return (int) studyDates.stream()
+                .filter(date -> date.isBefore(today))
+                .count();
+    }
+
+    private int calculateEffectiveSessionOffset(Card card, Classroom targetClassroom) {
+        int memberProgressSession = Math.max(card.getSession() - card.getRemainingSession(), 0);
+        int targetClassProgressSession = countCompletedSessions(buildStudyDates(targetClassroom));
+        return Math.max(memberProgressSession, targetClassProgressSession);
+    }
+
+    private boolean canContinueInClassroom(Card card, Classroom targetClassroom) {
+        int effectiveSessionOffset = calculateEffectiveSessionOffset(card, targetClassroom);
+        int targetStudyDateCount = buildStudyDates(targetClassroom).size();
+        return effectiveSessionOffset < card.getSession()
+                && effectiveSessionOffset < targetStudyDateCount;
     }
 }

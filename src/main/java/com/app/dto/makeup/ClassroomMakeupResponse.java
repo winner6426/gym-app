@@ -15,6 +15,7 @@ public class ClassroomMakeupResponse {
     private Long id;
     private String code;
     private String name;
+    private Long courseId;
     private String courseName;
     private Level level;
     private String centerName;

@@ -1,5 +1,6 @@
 package com.app.security;
 
+import com.app.dto.user.UserResponse;
 import com.app.models.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -21,12 +22,20 @@ public class JwtService {
     private long expirationMs;
 
     public String generateToken(User user) {
+        return generateToken(user.getEmail(), user.getRole().name());
+    }
+
+    public String generateToken(UserResponse user) {
+        return generateToken(user.getEmail(), user.getRole().name());
+    }
+
+    private String generateToken(String email, String role) {
         Date now = new Date();
         Date expiration = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
-                .setSubject(user.getEmail())
-                .claim("role", user.getRole().name())
+                .setSubject(email)
+                .claim("role", role)
                 .setIssuedAt(now)
                 .setExpiration(expiration)
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)

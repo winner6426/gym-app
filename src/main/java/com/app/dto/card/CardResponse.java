@@ -25,6 +25,7 @@ public class CardResponse {
     private Long classroomId;
     private String classroomCode;
     private String classroomName;
+    private Long courseId;
     private String courseName;
     private Level level;
     private String centerName;
@@ -32,6 +33,7 @@ public class CardResponse {
     private String trainerName;
     private int session;
     private int remainingSession;
+    private Integer classroomSessionOffset;
     private LocalDate issuedDate;
     private LocalDate expiredDate;
     private String status;

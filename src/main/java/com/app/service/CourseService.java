@@ -5,6 +5,7 @@ import com.app.dto.course.CourseResponse;
 import com.app.exception.DuplicateResourceException;
 import com.app.exception.ResourceNotFoundException;
 import com.app.models.Course;
+import com.app.repository.CardRepository;
 import com.app.repository.CourseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import java.util.List;
 public class CourseService {
 
     private final CourseRepository courseRepository;
+    private final CardRepository cardRepository;
 
     public List<CourseResponse> getAll(Boolean active) {
         List<Course> courses = active == null
@@ -64,6 +66,14 @@ public class CourseService {
         if (courseRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
             throw new DuplicateResourceException(
                     "Tên khóa học đã tồn tại."
+            );
+        }
+
+        boolean structuralChange = !course.getSession().equals(request.getSession())
+                || course.getLevel() != request.getLevel();
+        if (structuralChange && cardRepository.countByEffectiveCourseId(course.getId()) > 0) {
+            throw new IllegalArgumentException(
+                    "Khong the doi so buoi hoac trinh do cua khoa hoc da co hoc vien duoc cap the."
             );
         }
 

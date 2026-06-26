@@ -18,6 +18,7 @@ public class Card {
 
     private int session;
     private int remainingSession;
+    private Integer classroomSessionOffset;
     private LocalDate issuedDate;
     private LocalDate expiredDate;
 
@@ -26,5 +27,13 @@ public class Card {
     @OneToOne
     @JoinColumn(name = "registration_id", unique = true)
     private Registration registration;
+
+    @ManyToOne
+    @JoinColumn(name = "course_id")
+    private Course course;
+
+    @ManyToOne
+    @JoinColumn(name = "current_classroom_id")
+    private Classroom currentClassroom;
 
 }

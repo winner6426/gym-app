@@ -6,13 +6,12 @@ import com.app.exception.ResourceNotFoundException;
 import com.app.models.Attendance;
 import com.app.models.Card;
 import com.app.models.Classroom;
-import com.app.models.Registration;
+import com.app.models.ClassroomStatus;
 import com.app.models.RegistrationStatus;
 import com.app.models.Schedule;
 import com.app.repository.AttendanceRepository;
 import com.app.repository.CardRepository;
 import com.app.repository.ClassroomRepository;
-import com.app.repository.RegistrationRepository;
 import com.app.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,9 +33,12 @@ public class AttendanceService {
 
     private static final String PRESENT = "PRESENT";
     private static final String ABSENT = "ABSENT";
+    private static final List<RegistrationStatus> VISIBLE_ATTENDANCE_STATUSES = List.of(
+            RegistrationStatus.ENROLLED,
+            RegistrationStatus.CANCELLATION_REQUESTED
+    );
 
     private final ClassroomRepository classroomRepository;
-    private final RegistrationRepository registrationRepository;
     private final AttendanceRepository attendanceRepository;
     private final CardRepository cardRepository;
     private final ScheduleRepository scheduleRepository;
@@ -50,6 +52,7 @@ public class AttendanceService {
 
         return classroomRepository.findByTrainerIdOrderByStartDateDescIdDesc(trainerId)
                 .stream()
+                .filter(classroom -> classroomService.resolveStatus(classroom) == ClassroomStatus.IN_PROGRESS)
                 .map(this::toClassroomSummary)
                 .toList();
     }
@@ -64,28 +67,36 @@ public class AttendanceService {
         List<LocalDate> attendanceDates = buildAttendanceDates(classroom);
         LocalDate date = resolveAttendanceDate(attendanceDate, attendanceDates);
 
-        List<Registration> registrations = registrationRepository
-                .findByClassroomIdAndStatus(classroomId, RegistrationStatus.ENROLLED)
-                .stream()
-                .sorted(Comparator.comparing(
-                        registration -> safeText(registration.getUser().getName())
-                ))
-                .toList();
-
-        Map<Long, Attendance> attendanceByStudentId = attendanceRepository
+        List<Card> cards = findActiveCardsInClassroom(classroomId, attendanceDates, date);
+        List<Attendance> existingAttendances = attendanceRepository
                 .findByClassroomIdAndAttendanceDate(classroomId, date)
                 .stream()
+                .toList();
+        Map<Long, Attendance> attendanceByCardId = existingAttendances
+                .stream()
+                .filter(attendance -> attendance.getCard() != null)
+                .collect(Collectors.toMap(
+                        attendance -> attendance.getCard().getId(),
+                        Function.identity(),
+                        (first, second) -> first
+                ));
+        Map<Long, Attendance> legacyAttendanceByStudentId = existingAttendances
+                .stream()
+                .filter(attendance -> attendance.getCard() == null && attendance.getStudent() != null)
                 .collect(Collectors.toMap(
                         attendance -> attendance.getStudent().getId(),
                         Function.identity(),
                         (first, second) -> first
                 ));
 
-        List<AttendanceResponse.StudentAttendanceResponse> students = registrations
+        List<AttendanceResponse.StudentAttendanceResponse> students = cards
                 .stream()
-                .map(registration -> toStudentResponse(
-                        registration,
-                        attendanceByStudentId.get(registration.getUser().getId())
+                .map(card -> toStudentResponse(
+                        card,
+                        attendanceByCardId.getOrDefault(
+                                card.getId(),
+                                legacyAttendanceByStudentId.get(card.getRegistration().getUser().getId())
+                        )
                 ))
                 .toList();
 
@@ -107,23 +118,22 @@ public class AttendanceService {
         Classroom classroom = getClassroomForTrainer(request.getTrainerId(), classroomId);
         List<LocalDate> attendanceDates = buildAttendanceDates(classroom);
         if (!attendanceDates.contains(request.getAttendanceDate())) {
-            throw new IllegalArgumentException("Ngay diem danh khong nam trong lich hoc cua lop.");
+            throw new IllegalArgumentException("Ngày điểm danh không nằm trong lịch học của lớp.");
         }
 
-        List<Registration> registrations = registrationRepository
-                .findByClassroomIdAndStatus(classroomId, RegistrationStatus.ENROLLED);
-
-        Map<Long, Registration> registrationByStudentId = registrations.stream()
+        Map<Long, Card> cardByStudentId = findActiveCardsInClassroom(classroomId, attendanceDates, request.getAttendanceDate())
+                .stream()
                 .collect(Collectors.toMap(
-                        registration -> registration.getUser().getId(),
-                        Function.identity()
+                        card -> card.getRegistration().getUser().getId(),
+                        Function.identity(),
+                        (first, second) -> first
                 ));
 
         for (AttendanceRequest.StudentAttendanceRequest record : request.getRecords()) {
             saveOneAttendance(
                     classroom,
                     request.getAttendanceDate(),
-                    registrationByStudentId,
+                    cardByStudentId,
                     record
             );
         }
@@ -135,10 +145,32 @@ public class AttendanceService {
         );
     }
 
+    private List<Card> findActiveCardsInClassroom(
+            Long classroomId,
+            List<LocalDate> attendanceDates,
+            LocalDate attendanceDate) {
+        int attendanceIndex = attendanceDates.indexOf(attendanceDate);
+        return cardRepository
+                .findActiveCardsByEffectiveClassroomAndRegistrationStatuses(
+                        classroomId,
+                        VISIBLE_ATTENDANCE_STATUSES
+                )
+                .stream()
+                .filter(card -> attendanceIndex < 0 || attendanceIndex >= getClassroomSessionOffset(card))
+                .sorted(Comparator.comparing(
+                        card -> safeText(card.getRegistration().getUser().getName())
+                ))
+                .toList();
+    }
+
+    private int getClassroomSessionOffset(Card card) {
+        return card.getClassroomSessionOffset() == null ? 0 : card.getClassroomSessionOffset();
+    }
+
     private void saveOneAttendance(
             Classroom classroom,
             LocalDate attendanceDate,
-            Map<Long, Registration> registrationByStudentId,
+            Map<Long, Card> cardByStudentId,
             AttendanceRequest.StudentAttendanceRequest record) {
 
         if (record == null || record.getStudentId() == null) {
@@ -146,31 +178,35 @@ public class AttendanceService {
         }
 
         String nextStatus = normalizeStatus(record.getStatus());
-        Registration registration = registrationByStudentId.get(record.getStudentId());
-        if (registration == null) {
+        Card card = cardByStudentId.get(record.getStudentId());
+        if (card == null) {
             throw new IllegalArgumentException("Học viên không thuộc lớp đang điểm danh.");
         }
 
-        Card card = cardRepository.findByRegistration(registration)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Học viên chưa có thẻ tập."
-                ));
-
         Attendance attendance = attendanceRepository
-                .findByClassroomIdAndStudentIdAndAttendanceDate(
+                .findByCardIdAndClassroomIdAndAttendanceDate(
+                        card.getId(),
+                        classroom.getId(),
+                        attendanceDate
+                )
+                .or(() -> attendanceRepository.findByClassroomIdAndStudentIdAndAttendanceDate(
                         classroom.getId(),
                         record.getStudentId(),
                         attendanceDate
-                )
+                ))
                 .orElseGet(() -> Attendance.builder()
                         .classroom(classroom)
-                        .student(registration.getUser())
+                        .student(card.getRegistration().getUser())
+                        .card(card)
                         .attendanceDate(attendanceDate)
                         .build());
 
         String previousStatus = attendance.getStatus();
         adjustRemainingSession(card, previousStatus, nextStatus);
 
+        attendance.setClassroom(classroom);
+        attendance.setStudent(card.getRegistration().getUser());
+        attendance.setCard(card);
         attendance.setStatus(nextStatus);
         attendanceRepository.save(attendance);
         cardRepository.save(card);
@@ -190,7 +226,6 @@ public class AttendanceService {
             }
             card.setRemainingSession(card.getRemainingSession() - 1);
         }
-
     }
 
     private boolean isRecordedAttendance(String status) {
@@ -209,6 +244,9 @@ public class AttendanceService {
 
         if (!classroom.getTrainer().getId().equals(trainerId)) {
             throw new IllegalArgumentException("Huấn luyện viên không phụ trách lớp này.");
+        }
+        if (classroomService.resolveStatus(classroom) != ClassroomStatus.IN_PROGRESS) {
+            throw new IllegalArgumentException("Lớp học đã kết thúc hoặc chưa đến thời gian học, không thể điểm danh.");
         }
 
         return classroom;
@@ -269,10 +307,10 @@ public class AttendanceService {
     }
 
     private AttendanceResponse.StudentAttendanceResponse toStudentResponse(
-            Registration registration,
+            Card card,
             Attendance attendance) {
 
-        Card card = cardRepository.findByRegistration(registration).orElse(null);
+        var registration = card.getRegistration();
 
         return AttendanceResponse.StudentAttendanceResponse.builder()
                 .studentId(registration.getUser().getId())
@@ -280,9 +318,9 @@ public class AttendanceService {
                 .studentEmail(registration.getUser().getEmail())
                 .studentPhone(registration.getUser().getPhoneNumber())
                 .registrationId(registration.getId())
-                .cardId(card == null ? null : card.getId())
-                .totalSession(card == null ? null : card.getSession())
-                .remainingSession(card == null ? null : card.getRemainingSession())
+                .cardId(card.getId())
+                .totalSession(card.getSession())
+                .remainingSession(card.getRemainingSession())
                 .attendanceId(attendance == null ? null : attendance.getId())
                 .attendanceStatus(attendance == null ? null : attendance.getStatus())
                 .build();
@@ -342,7 +380,7 @@ public class AttendanceService {
                     .orElse(attendanceDates.get(attendanceDates.size() - 1));
         }
         if (!attendanceDates.contains(requestedDate)) {
-            throw new IllegalArgumentException("Ngay diem danh khong nam trong lich hoc cua lop.");
+            throw new IllegalArgumentException("Ngày điểm danh không nằm trong lịch học của lớp.");
         }
         return requestedDate;
     }

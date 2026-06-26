@@ -9,20 +9,27 @@ import com.app.exception.ResourceNotFoundException;
 import com.app.models.Card;
 import com.app.models.Classroom;
 import com.app.models.ClassroomStatus;
+import com.app.models.Course;
 import com.app.models.FreezeRequest;
 import com.app.models.Registration;
+import com.app.models.RegistrationStatus;
+import com.app.models.Schedule;
 import com.app.repository.CardRepository;
 import com.app.repository.ClassroomRepository;
 import com.app.repository.FreezeRequestRepository;
-import com.app.repository.RegistrationRepository;
+import com.app.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,14 +39,13 @@ public class FreezeRequestService {
     private static final String PENDING = "PENDING";
     private static final String FROZEN = "FROZEN";
     private static final String REJECTED = "REJECTED";
-    private static final String RESUME_PENDING = "RESUME_PENDING";
     private static final String RESUMED = "RESUMED";
 
     private final FreezeRequestRepository freezeRequestRepository;
     private final CardRepository cardRepository;
     private final ClassroomRepository classroomRepository;
-    private final RegistrationRepository registrationRepository;
     private final ClassroomService classroomService;
+    private final ScheduleRepository scheduleRepository;
 
     @Transactional(readOnly = true)
     public List<FreezeRequestResponse> getMyFreezeRequests(Long userId, String status) {
@@ -54,7 +60,10 @@ public class FreezeRequestService {
                         status.trim().toUpperCase()
                 );
 
-        return requests.stream().map(this::toResponse).toList();
+        return requests.stream()
+                .filter(this::isVisibleRequest)
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -63,6 +72,7 @@ public class FreezeRequestService {
         return freezeRequestRepository.findAll().stream()
                 .filter(request -> normalizedStatus.isBlank()
                         || normalizedStatus.equalsIgnoreCase(request.getStatus()))
+                .filter(this::isVisibleRequest)
                 .sorted(Comparator
                         .comparing(FreezeRequest::getStartDate, Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(FreezeRequest::getId, Comparator.reverseOrder()))
@@ -86,8 +96,7 @@ public class FreezeRequestService {
                 .findByRegistration(card.getRegistration())
                 .stream()
                 .anyMatch(item -> PENDING.equalsIgnoreCase(item.getStatus())
-                        || FROZEN.equalsIgnoreCase(item.getStatus())
-                        || RESUME_PENDING.equalsIgnoreCase(item.getStatus()));
+                        || FROZEN.equalsIgnoreCase(item.getStatus()));
         if (hasOpenFreeze) {
             throw new IllegalArgumentException("Khoa hoc nay dang co yeu cau bao luu chua xu ly hoac chua hoc lai.");
         }
@@ -118,10 +127,6 @@ public class FreezeRequestService {
         if (PENDING.equalsIgnoreCase(freezeRequest.getStatus())) {
             return processFreezeApproval(freezeRequest, nextStatus, request);
         }
-        if (RESUME_PENDING.equalsIgnoreCase(freezeRequest.getStatus())) {
-            return processResumeApproval(freezeRequest, nextStatus, request);
-        }
-
         throw new IllegalArgumentException("Chi yeu cau dang cho duyet moi duoc xu ly.");
     }
 
@@ -149,40 +154,6 @@ public class FreezeRequestService {
         return toResponse(freezeRequestRepository.save(freezeRequest));
     }
 
-    private FreezeRequestResponse processResumeApproval(
-            FreezeRequest freezeRequest,
-            String nextStatus,
-            ProcessFreezeRequest request) {
-        if (!RESUMED.equals(nextStatus) && !FROZEN.equals(nextStatus)) {
-            throw new IllegalArgumentException("Trang thai xu ly hoc lai khong hop le.");
-        }
-
-        Card card = cardRepository.findByRegistration(freezeRequest.getRegistration())
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay the cua khoa bao luu."));
-        if (!FROZEN.equalsIgnoreCase(card.getStatus())) {
-            throw new IllegalArgumentException("The hoc vien khong o trang thai bao luu.");
-        }
-
-        if (RESUMED.equals(nextStatus)) {
-            if (freezeRequest.getTargetClassroom() != null) {
-                moveRegistrationToClassroom(
-                        freezeRequest.getRegistration(),
-                        freezeRequest.getTargetClassroom().getId()
-                );
-            }
-            card.setStatus(ACTIVE);
-            freezeRequest.setStatus(RESUMED);
-            registrationRepository.save(freezeRequest.getRegistration());
-            cardRepository.save(card);
-        } else {
-            freezeRequest.setStatus(FROZEN);
-        }
-
-        freezeRequest.setStaffNote(cleanText(request.getStaffNote()));
-        freezeRequest.setProcessedAt(LocalDateTime.now());
-        return toResponse(freezeRequestRepository.save(freezeRequest));
-    }
-
     @Transactional(readOnly = true)
     public List<ClassroomResponse> getResumeOptions(Long userId, Long freezeRequestId, String province) {
         FreezeRequest freezeRequest = getOwnedFreezeRequest(userId, freezeRequestId);
@@ -192,7 +163,7 @@ public class FreezeRequestService {
             return List.of();
         }
 
-        Classroom currentClassroom = freezeRequest.getRegistration().getClassroom();
+        Classroom currentClassroom = resolveCurrentClassroom(card);
         String provinceFilter = province == null ? "" : province.trim();
 
         return classroomRepository.findAll().stream()
@@ -201,7 +172,8 @@ public class FreezeRequestService {
                     return status == ClassroomStatus.RECRUITING || status == ClassroomStatus.IN_PROGRESS;
                 })
                 .filter(classroom -> !classroom.getId().equals(currentClassroom.getId()))
-                .filter(classroom -> classroom.getCourse().getLevel() == currentClassroom.getCourse().getLevel())
+                .filter(classroom -> classroom.getCourse().getId().equals(resolveCourse(card).getId()))
+                .filter(classroom -> canContinueInClassroom(card, classroom))
                 .filter(classroom -> classroom.getCurrentCapacity() < classroom.getMaxCapacity())
                 .filter(classroom -> provinceFilter.isBlank()
                         || classroom.getCenter().getProvince().equalsIgnoreCase(provinceFilter))
@@ -236,28 +208,36 @@ public class FreezeRequestService {
             throw new IllegalArgumentException("The hoc vien khong o trang thai bao luu.");
         }
 
-        Classroom targetClassroom = null;
-        if (request.getTargetClassroomId() != null) {
-            targetClassroom = validateResumeClassroom(
-                    freezeRequest.getRegistration(),
-                    request.getTargetClassroomId()
-            );
+        if (card.getRegistration().getStatus() == RegistrationStatus.CANCELLED) {
+            throw new IllegalArgumentException("Lop hoc da huy khong the hoc lai.");
         }
+        if (request.getTargetClassroomId() == null) {
+            throw new IllegalArgumentException("Vui long chon lop hoc lai.");
+        }
+
+        Classroom targetClassroom = validateResumeClassroom(card, request.getTargetClassroomId());
+        moveCardToClassroom(card, targetClassroom.getId());
+        card.setStatus(ACTIVE);
+        cardRepository.save(card);
 
         freezeRequest.setTargetClassroom(targetClassroom);
         freezeRequest.setResumeDate(request.getResumeDate());
         freezeRequest.setResumeRequestedAt(LocalDateTime.now());
-        freezeRequest.setStatus(RESUME_PENDING);
+        freezeRequest.setProcessedAt(LocalDateTime.now());
+        freezeRequest.setStatus(RESUMED);
         return toResponse(freezeRequestRepository.save(freezeRequest));
     }
 
-    private Classroom validateResumeClassroom(Registration registration, Long targetClassroomId) {
-        Classroom currentClassroom = registration.getClassroom();
+    private Classroom validateResumeClassroom(Card card, Long targetClassroomId) {
+        Classroom currentClassroom = resolveCurrentClassroom(card);
         Classroom targetClassroom = classroomRepository.findById(targetClassroomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Khong tim thay lop hoc co id: " + targetClassroomId));
 
-        if (targetClassroom.getCourse().getLevel() != currentClassroom.getCourse().getLevel()) {
-            throw new IllegalArgumentException("Lop hoc lai phai cung trinh do voi khoa da bao luu.");
+        if (targetClassroom.getId().equals(currentClassroom.getId())) {
+            throw new IllegalArgumentException("Lop hoc lai phai khac lop dang bao luu.");
+        }
+        if (!targetClassroom.getCourse().getId().equals(resolveCourse(card).getId())) {
+            throw new IllegalArgumentException("Lop hoc lai phai thuoc cung khoa hoc da bao luu.");
         }
         if (targetClassroom.getCurrentCapacity() >= targetClassroom.getMaxCapacity()) {
             throw new IllegalArgumentException("Lop hoc lai da du si so.");
@@ -267,19 +247,29 @@ public class FreezeRequestService {
                 && targetStatus != ClassroomStatus.IN_PROGRESS) {
             throw new IllegalArgumentException("Lop hoc lai khong con nhan hoc vien.");
         }
+        if (!canContinueInClassroom(card, targetClassroom)) {
+            throw new IllegalArgumentException("Lop hoc lai khong con ngay hoc phu hop voi so buoi da hoc.");
+        }
         return targetClassroom;
     }
 
-    private void moveRegistrationToClassroom(Registration registration, Long targetClassroomId) {
-        Classroom currentClassroom = registration.getClassroom();
-        Classroom targetClassroom = validateResumeClassroom(registration, targetClassroomId);
+    private void moveCardToClassroom(Card card, Long targetClassroomId) {
+        Classroom currentClassroom = resolveCurrentClassroom(card);
+        Classroom targetClassroom = validateResumeClassroom(card, targetClassroomId);
         if (targetClassroom.getId().equals(currentClassroom.getId())) {
             return;
         }
 
         currentClassroom.setCurrentCapacity(Math.max(0, currentClassroom.getCurrentCapacity() - 1));
         targetClassroom.setCurrentCapacity(targetClassroom.getCurrentCapacity() + 1);
-        registration.setClassroom(targetClassroom);
+        int effectiveSessionOffset = calculateEffectiveSessionOffset(card, targetClassroom);
+        card.setCourse(resolveCourse(card));
+        card.setCurrentClassroom(targetClassroom);
+        card.setClassroomSessionOffset(effectiveSessionOffset);
+        card.setRemainingSession(card.getSession() - effectiveSessionOffset);
+        if (targetClassroom.getEndDate() != null) {
+            card.setExpiredDate(targetClassroom.getEndDate());
+        }
         classroomRepository.save(currentClassroom);
         classroomRepository.save(targetClassroom);
     }
@@ -327,9 +317,9 @@ public class FreezeRequestService {
 
     private FreezeRequestResponse toResponse(FreezeRequest freezeRequest) {
         Registration registration = freezeRequest.getRegistration();
-        Classroom classroom = registration.getClassroom();
-        Classroom targetClassroom = freezeRequest.getTargetClassroom();
         Card card = cardRepository.findByRegistration(registration).orElse(null);
+        Classroom classroom = card == null ? registration.getClassroom() : resolveCurrentClassroom(card);
+        Classroom targetClassroom = freezeRequest.getTargetClassroom();
 
         return FreezeRequestResponse.builder()
                 .id(freezeRequest.getId())
@@ -360,7 +350,73 @@ public class FreezeRequestService {
                 .build();
     }
 
+    private boolean isVisibleRequest(FreezeRequest request) {
+        if (request.getRegistration().getStatus() == RegistrationStatus.CANCELLED) {
+            return false;
+        }
+        return cardRepository.findByRegistration(request.getRegistration())
+                .map(card -> !"CANCELLED".equalsIgnoreCase(card.getStatus()))
+                .orElse(true);
+    }
+
     private String cleanText(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private Classroom resolveCurrentClassroom(Card card) {
+        return card.getCurrentClassroom() != null
+                ? card.getCurrentClassroom()
+                : card.getRegistration().getClassroom();
+    }
+
+    private Course resolveCourse(Card card) {
+        return card.getCourse() != null
+                ? card.getCourse()
+                : resolveCurrentClassroom(card).getCourse();
+    }
+
+    private List<LocalDate> buildStudyDates(Classroom classroom) {
+        if (classroom.getStartDate() == null || classroom.getCourse().getSession() == null) {
+            return List.of();
+        }
+
+        Set<DayOfWeek> studyDays = scheduleRepository.findByClassroomId(classroom.getId())
+                .stream()
+                .map(Schedule::getDayOfWeek)
+                .collect(Collectors.toSet());
+        if (studyDays.isEmpty()) {
+            return List.of();
+        }
+
+        int totalSessions = classroom.getCourse().getSession();
+        List<LocalDate> dates = new ArrayList<>(totalSessions);
+        LocalDate cursor = classroom.getStartDate();
+        while (dates.size() < totalSessions) {
+            if (studyDays.contains(cursor.getDayOfWeek())) {
+                dates.add(cursor);
+            }
+            cursor = cursor.plusDays(1);
+        }
+        return dates;
+    }
+
+    private int calculateEffectiveSessionOffset(Card card, Classroom targetClassroom) {
+        int memberProgressSession = Math.max(card.getSession() - card.getRemainingSession(), 0);
+        int targetClassProgressSession = countCompletedSessions(buildStudyDates(targetClassroom));
+        return Math.max(memberProgressSession, targetClassProgressSession);
+    }
+
+    private int countCompletedSessions(List<LocalDate> studyDates) {
+        LocalDate today = LocalDate.now();
+        return (int) studyDates.stream()
+                .filter(date -> date.isBefore(today))
+                .count();
+    }
+
+    private boolean canContinueInClassroom(Card card, Classroom targetClassroom) {
+        int effectiveSessionOffset = calculateEffectiveSessionOffset(card, targetClassroom);
+        int targetStudyDateCount = buildStudyDates(targetClassroom).size();
+        return effectiveSessionOffset < card.getSession()
+                && effectiveSessionOffset < targetStudyDateCount;
     }
 }

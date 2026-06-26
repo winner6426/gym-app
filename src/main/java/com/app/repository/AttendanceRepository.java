@@ -26,4 +26,10 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
             Long studentId,
             LocalDate attendanceDate
     );
+
+    Optional<Attendance> findByCardIdAndClassroomIdAndAttendanceDate(
+            Long cardId,
+            Long classroomId,
+            LocalDate attendanceDate
+    );
 }
