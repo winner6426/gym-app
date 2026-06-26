@@ -117,7 +117,7 @@ export default function ResumeCourse() {
         targetClassroomId: Number(selectedClassroomId),
         resumeDate,
       })
-      setSuccess(`Đã gửi yêu cầu học lại BL-${updated.id}. Vui lòng chờ nhân viên duyệt.`)
+      setSuccess(`Đã học lại BL-${updated.id}. Lớp của bạn đã được chuyển sang lớp mới.`)
       setFreezeRequests((current) => current.filter((item) => String(item.id) !== String(selectedFreezeId)))
       setClassrooms([])
       setSelectedFreezeId("")
@@ -134,7 +134,7 @@ export default function ResumeCourse() {
       <div className="mb-7">
         <h1 className="mt-2 text-3xl font-bold">Tiếp tục học sau bảo lưu</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Chọn yêu cầu bảo lưu, tìm lớp cùng trình độ và còn chỗ để dùng tiếp số buổi còn lại.
+          Chọn yêu cầu bảo lưu, tìm lớp cùng khóa học và còn chỗ để dùng tiếp số buổi còn lại.
         </p>
       </div>
 
@@ -182,7 +182,7 @@ export default function ResumeCourse() {
 
           {hasSearched && classrooms.length === 0 ? (
             <Card className="mt-6 flex min-h-48 items-center justify-center text-center text-sm text-muted-foreground">
-              Không tìm thấy lớp cùng trình độ còn chỗ theo điều kiện đã chọn.
+              Không tìm thấy lớp cùng khóa học còn chỗ theo điều kiện đã chọn.
             </Card>
           ) : (
             <form onSubmit={handleSubmit} className="mt-6 grid gap-6 xl:grid-cols-[1fr_340px]">
@@ -213,7 +213,7 @@ export default function ResumeCourse() {
                   <div className="flex justify-between gap-4"><dt className="text-muted-foreground">Trình độ</dt><dd>{selectedFreeze ? levelLabels[selectedFreeze.level] || selectedFreeze.level : ""}</dd></div>
                 </dl>
                 <Button className="mt-6 w-full" disabled={saving || !selectedClassroomId}>
-                  {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}Gửi yêu cầu học lại
+                  {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}Xác nhận học lại
                 </Button>
               </Card>
             </form>

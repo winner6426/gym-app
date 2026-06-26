@@ -9,7 +9,7 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "../../components/ui/Button.jsx"
 import { Card } from "../../components/ui/Card.jsx"
 import { useAuth } from "../../context/AuthContext.jsx"
@@ -133,9 +133,19 @@ export default function MakeupClass() {
   })
   const hasUsedMakeupThisMonth = currentMonthRequests.length >= 1
 
+  const selectedCard = activeCards.find((card) => String(card.id) === String(selectedCardId))
   const provinces = [...new Set(classrooms.map((cl) => cl.province).filter(Boolean))]
-  const filteredClassrooms = classrooms.filter(
-    (cl) => provinceFilter === "ALL" || cl.province === provinceFilter,
+  const filteredClassrooms = useMemo(() => (
+    classrooms.filter((cl) => {
+      const sameCourse = selectedCard?.courseId
+        ? Number(cl.courseId) === Number(selectedCard.courseId)
+        : cl.courseName === selectedCard?.courseName
+      const sameProvince = provinceFilter === "ALL" || cl.province === provinceFilter
+      return sameCourse && sameProvince
+    })
+  ), [classrooms, provinceFilter, selectedCard])
+  const selectedClassroomIsAvailable = filteredClassrooms.some(
+    (classroom) => String(classroom.id) === String(selectedClassroomId),
   )
 
   const handleSubmit = async (event) => {
@@ -159,7 +169,6 @@ export default function MakeupClass() {
 
     setSubmitting(true)
     try {
-      const card = activeCards.find((c) => String(c.id) === String(selectedCardId))
       const created = await createMakeupRequest({
         userId: Number(user.id),
         cardId: Number(selectedCardId),
@@ -212,23 +221,12 @@ export default function MakeupClass() {
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Card>
           <p className="text-sm text-muted-foreground">Lượt bù tháng này</p>
-          <p className={`mt-3 text-2xl font-bold ${hasUsedMakeupThisMonth ? "text-red-300" : "text-emerald-300"}`}>
+          <p className="mt-3 text-2xl font-bold">
             {currentMonthRequests.length} / 1
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {hasUsedMakeupThisMonth ? "Đã dùng hết lượt tháng này" : "Còn 1 lượt"}
-          </p>
+          
         </Card>
-        <Card>
-          <p className="text-sm text-muted-foreground">Lớp bù khả dụng</p>
-          <p className="mt-3 text-2xl font-bold">{classrooms.length}</p>
-          <p className="mt-1 text-xs text-muted-foreground">cùng trình độ, còn chỗ</p>
-        </Card>
-        <Card>
-          <p className="text-sm text-muted-foreground">Tổng đã xin bù</p>
-          <p className="mt-3 text-2xl font-bold">{myRequests.length}</p>
-          <p className="mt-1 text-xs text-muted-foreground">kể từ khi tham gia</p>
-        </Card>
+        
       </div>
 
       {/* Cảnh báo đã hết lượt */}
@@ -266,7 +264,7 @@ export default function MakeupClass() {
             {filteredClassrooms.length === 0 ? (
               <Card className="flex min-h-48 items-center justify-center text-center text-sm text-muted-foreground">
                 {classrooms.length === 0
-                  ? "Hiện không có lớp nào phù hợp với trình độ của bạn."
+                  ? "Hiện không có lớp nào phù hợp với khóa học của bạn."
                   : "Không có lớp nào ở tỉnh/thành phố đã chọn."}
               </Card>
             ) : (
@@ -329,7 +327,10 @@ export default function MakeupClass() {
                   <span className="mb-2 block text-sm font-semibold">Thẻ học viên</span>
                   <select
                     value={selectedCardId}
-                    onChange={(e) => setSelectedCardId(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedCardId(e.target.value)
+                      setSelectedClassroomId("")
+                    }}
                     className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                   >
                     {activeCards.map((card) => (
@@ -351,17 +352,14 @@ export default function MakeupClass() {
                     </p>
                   </div>
                 )}
-                {!selectedClassroomId && (
-                  <p className="text-xs text-muted-foreground">← Chọn lớp bù từ danh sách bên trái.</p>
-                )}
-
+              
                 {/* Ngày vắng */}
                 <label className="block">
                   <span className="mb-2 block text-sm font-semibold">Ngày vắng mặt</span>
                   <input
                     type="date"
                     value={absenceDate}
-                    max={today}
+                    min={today}
                     onChange={(e) => setAbsenceDate(e.target.value)}
                     className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                   />
@@ -394,7 +392,7 @@ export default function MakeupClass() {
 
               <Button
                 className="mt-5 w-full"
-                disabled={submitting || hasUsedMakeupThisMonth || !selectedClassroomId || !absenceDate}
+                disabled={submitting || hasUsedMakeupThisMonth || !selectedClassroomIsAvailable || !absenceDate}
               >
                 {hasUsedMakeupThisMonth ? "Đã hết lượt tháng này" : "Gửi yêu cầu học bù"}
               </Button>

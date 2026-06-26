@@ -1,5 +1,5 @@
-import { FileText, LoaderCircle } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { LoaderCircle } from "lucide-react"
+import { useEffect, useState } from "react"
 import { Card } from "../../components/ui/Card.jsx"
 import { useAuth } from "../../context/AuthContext.jsx"
 import { getMyPayments } from "../../services/memberService.js"
@@ -37,6 +37,21 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("vi-VN").format(new Date(value))
 }
 
+function isRefundPayment(payment) {
+  return payment.paymentStatus === "REFUNDED" || payment.paymentStatus === "CANCELLED"
+}
+
+function getTransactionAmount(payment) {
+  return isRefundPayment(payment)
+    ? Number(payment.refundAmount || 0)
+    : Number(payment.paidAmount || 0)
+}
+
+function formatTransaction(payment) {
+  const sign = isRefundPayment(payment) ? "+" : "-"
+  return `${sign} ${formatCurrency(getTransactionAmount(payment))}`
+}
+
 export default function Payments() {
   const { user } = useAuth()
   const [payments, setPayments] = useState([])
@@ -60,13 +75,6 @@ export default function Payments() {
     loadPayments()
   }, [user.id])
 
-  const summary = useMemo(() => {
-    const paidAmount = payments.reduce((sum, payment) => sum + Number(payment.paidAmount || 0), 0)
-    const discountAmount = payments.reduce((sum, payment) => sum + Number(payment.discountAmount || 0), 0)
-    const debtAmount = payments.reduce((sum, payment) => sum + Number(payment.remainingAmount || 0), 0)
-    return { paidAmount, discountAmount, debtAmount }
-  }, [payments])
-
   return (
     <>
       <div className="mb-7">
@@ -79,11 +87,7 @@ export default function Payments() {
 
       {error && <p className="mb-5 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card><p className="text-sm text-muted-foreground">Tổng đã thanh toán</p><p className="mt-3 text-2xl font-bold">{formatCurrency(summary.paidAmount)}</p></Card>
-        
-        <Card><p className="text-sm text-muted-foreground">Công nợ hiện tại</p><p className="mt-3 text-2xl font-bold">{formatCurrency(summary.debtAmount)}</p></Card>
-      </div>
+      
 
       {loading ? (
         <div className="flex min-h-64 items-center justify-center text-muted-foreground">
@@ -101,31 +105,36 @@ export default function Payments() {
                 <th className="px-5 py-4">Biên nhận</th>
                 <th className="px-5 py-4">Khóa học</th>
                 <th className="px-5 py-4">Ngày thu</th>
-                <th className="px-5 py-4">Đã thu</th>
-                <th className="px-5 py-4">Còn lại</th>
+                <th className="px-5 py-4">Thanh toán</th>
+                
                 <th className="px-5 py-4">Trạng thái</th>
                 <th className="px-5 py-4"></th>
               </tr>
             </thead>
             <tbody>
-              {payments.map((payment) => (
-                <tr key={payment.paymentId} className="border-t border-border bg-card">
-                  <td className="px-5 py-4 font-semibold">HP-{String(payment.paymentId).padStart(6, "0")}</td>
-                  <td className="px-5 py-4">
-                    <p className="font-medium">{payment.courseName}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{payment.classroomCode} - {payment.classroomName}</p>
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground">{formatDate(payment.paymentDate)}</td>
-                  <td className="px-5 py-4 font-semibold">{formatCurrency(payment.paidAmount)}</td>
-                  <td className="px-5 py-4 font-semibold">{formatCurrency(payment.remainingAmount)}</td>
-                  <td className="px-5 py-4">
-                    <span className={`rounded-md px-2 py-1 text-xs ${statusStyles[payment.paymentStatus] || "bg-secondary"}`}>
-                      {statusLabels[payment.paymentStatus] || payment.paymentStatus}
-                    </span>
-                  </td>
-                  
-                </tr>
-              ))}
+              {payments.map((payment) => {
+                const refundPayment = isRefundPayment(payment)
+                return (
+                  <tr key={payment.paymentId} className="border-t border-border bg-card">
+                    <td className="px-5 py-4 font-semibold">HP-{String(payment.paymentId).padStart(6, "0")}</td>
+                    <td className="px-5 py-4">
+                      <p className="font-medium">{payment.courseName}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{payment.classroomCode} - {payment.classroomName}</p>
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">{formatDate(payment.paymentDate)}</td>
+                    <td className="px-5 py-4 font-semibold">
+                      {formatTransaction(payment)}
+                    </td>
+                    
+                    <td className="px-5 py-4">
+                      <span className={`rounded-md px-2 py-1 text-xs ${statusStyles[payment.paymentStatus] || "bg-secondary"}`}>
+                        {statusLabels[payment.paymentStatus] || payment.paymentStatus}
+                      </span>
+                    </td>
+                    
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

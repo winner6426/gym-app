@@ -79,8 +79,8 @@ function CenterDialog({ center, onClose, onSaved }) {
               {center ? "Cập nhật cơ sở" : "Thêm cơ sở mới"}
             </h2>
           </div>
-          <button type="button" className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={onClose} aria-label="Đóng">
-            <X className="h-5 w-5" />
+          <button type="button" className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={onClose}>
+            Đóng
           </button>
         </div>
 
@@ -95,8 +95,7 @@ function CenterDialog({ center, onClose, onSaved }) {
           <div className="flex justify-end gap-3 border-t border-border pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Hủy</Button>
             <Button type="submit" disabled={saving}>
-              {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
-              {center ? "Lưu thay đổi" : "Tạo cơ sở"}
+              {saving ? "Đang lưu..." : center ? "Lưu thay đổi" : "Tạo cơ sở"}
             </Button>
           </div>
         </form>
@@ -174,7 +173,7 @@ export default function Centers() {
           <p className="mt-2 text-sm text-muted-foreground">Quản lý các phòng tập tại nhiều tỉnh, thành phố.</p>
         </div>
         <Button onClick={() => { setEditingCenter(null); setDialogOpen(true) }}>
-          <Plus className="h-4 w-4" />Thêm cơ sở
+          Thêm cơ sở
         </Button>
       </div>
 

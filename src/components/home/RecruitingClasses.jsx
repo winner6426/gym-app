@@ -1,6 +1,7 @@
-import { CalendarDays, Clock3, LoaderCircle, MapPin, UserRound, UsersRound } from "lucide-react"
+import { CalendarDays, Clock3, LoaderCircle, MapPin, UserRound } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
+import { useAuth, getRoleHome } from "../../context/AuthContext.jsx"
 import { getPublicClassrooms } from "../../services/homeService.js"
 import { Button } from "../ui/Button.jsx"
 
@@ -36,6 +37,9 @@ function formatSchedules(schedules = []) {
 }
 
 export function RecruitingClasses() {
+  const { user } = useAuth()
+  const registrationLink = user ? getRoleHome(user.role) : "/login"
+
   const [classrooms, setClassrooms] = useState([])
   const [levelFilter, setLevelFilter] = useState("ALL")
   const [loading, setLoading] = useState(true)
@@ -122,7 +126,7 @@ export function RecruitingClasses() {
                   </p>
                 </div>
 
-                <Link to="/login" className="mt-6 block">
+                <Link to={registrationLink} className="mt-6 block">
                   <Button className="w-full">Đăng ký lớp này</Button>
                 </Link>
               </article>

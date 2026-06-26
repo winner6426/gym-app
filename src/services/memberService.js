@@ -67,6 +67,13 @@ export async function getTravelClassrooms({ userId, cardId, province }) {
   return response.data
 }
 
+export async function transferClassroom({ userId, cardId, targetClassroomId }) {
+  const response = await apiClient.patch("/member/travel-classrooms/transfer", null, {
+    params: { userId, cardId, targetClassroomId },
+  })
+  return response.data
+}
+
 export async function getMyFreezeRequests(userId, status) {
   const response = await apiClient.get("/member/freeze-requests", {
     params: { userId, status },

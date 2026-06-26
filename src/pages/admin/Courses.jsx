@@ -119,11 +119,10 @@ function CourseDialog({ course, onClose, onSaved }) {
           </div>
           <button
             type="button"
-            className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
             onClick={onClose}
-            aria-label="Đóng"
           >
-            <X className="h-5 w-5" />
+            Đóng
           </button>
         </div>
 
@@ -201,8 +200,7 @@ function CourseDialog({ course, onClose, onSaved }) {
           <div className="flex justify-end gap-3 border-t border-border pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Hủy</Button>
             <Button type="submit" disabled={saving}>
-              {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
-              {course ? "Lưu thay đổi" : "Tạo khóa học"}
+              {saving ? "Đang lưu..." : course ? "Lưu thay đổi" : "Tạo khóa học"}
             </Button>
           </div>
         </form>
@@ -386,13 +384,13 @@ export default function Courses() {
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-secondary p-3">
                   <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock3 className="h-4 w-4 text-primary" />Thời lượng
+                    Thời lượng
                   </p>
                   <p className="mt-2 font-bold">{course.session} buổi</p>
                 </div>
                 <div className="rounded-lg bg-secondary p-3">
                   <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CircleDollarSign className="h-4 w-4 text-primary" />Học phí
+                    Học phí
                   </p>
                   <p className="mt-2 font-bold">{formatCurrency(course.price)}</p>
                 </div>

@@ -9,15 +9,11 @@ import { getStaffFreezeRequests, processFreezeRequest } from "../../services/sta
 const statusOptions = [
   { value: "PENDING", label: "Chờ duyệt bảo lưu" },
   { value: "FROZEN", label: "Đang bảo lưu" },
-  { value: "RESUME_PENDING", label: "Chờ duyệt học lại" },
-  { value: "REJECTED", label: "Từ chối" },
-  { value: "RESUMED", label: "Đã học lại" },
 ]
 
 const statusStyles = {
   PENDING: "bg-amber-500/10 text-amber-200",
   FROZEN: "bg-blue-500/10 text-blue-200",
-  RESUME_PENDING: "bg-purple-500/10 text-purple-200",
   REJECTED: "bg-red-500/10 text-red-200",
   RESUMED: "bg-emerald-500/10 text-emerald-200",
 }
@@ -49,7 +45,6 @@ function RequestDialog({ request, staffId, onClose, onProcessed }) {
   const [savingAction, setSavingAction] = useState("")
   const [error, setError] = useState("")
   const canProcessFreeze = request.status === "PENDING"
-  const canProcessResume = request.status === "RESUME_PENDING"
 
   const submit = async (nextStatus) => {
     setSavingAction(nextStatus)
@@ -76,20 +71,13 @@ function RequestDialog({ request, staffId, onClose, onProcessed }) {
             <p className="text-xs font-semibold uppercase text-primary">Chi tiết yêu cầu</p>
             <h2 className="mt-1 text-xl font-bold">BL-{request.id} - {request.studentName}</h2>
           </div>
-          <button className="rounded-md p-2 text-muted-foreground hover:bg-secondary" onClick={onClose} aria-label="Đóng">
-            <X className="h-5 w-5" />
+          <button className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary" onClick={onClose}>
+            Đóng
           </button>
         </div>
 
         <div className="space-y-5 p-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-2.5 py-1 text-xs ${statusStyles[request.status] || "bg-secondary"}`}>
-              {getStatusLabel(request.status)}
-            </span>
-            {canProcessResume && (
-              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">Yêu cầu học lại</span>
-            )}
-          </div>
+          
 
           <div className="grid gap-3 rounded-lg bg-secondary p-4 text-sm sm:grid-cols-2">
             <DetailRow label="Điện thoại">{request.studentPhone}</DetailRow>
@@ -101,14 +89,6 @@ function RequestDialog({ request, staffId, onClose, onProcessed }) {
             <DetailRow label="Thời gian bảo lưu">{formatDate(request.startDate)} đến {formatDate(request.endDate)}</DetailRow>
             <DetailRow label="Trình độ">{request.level}</DetailRow>
           </div>
-
-          {canProcessResume && (
-            <div className="grid gap-3 rounded-lg border border-primary/30 bg-primary/10 p-4 text-sm sm:grid-cols-2">
-              <DetailRow label="Lớp muốn học lại">{request.targetClassroomCode} - {request.targetClassroomName}</DetailRow>
-              <DetailRow label="Cơ sở học lại">{request.targetCenterName}, {request.targetProvince}</DetailRow>
-              <DetailRow label="Ngày muốn học lại">{formatDate(request.resumeDate)}</DetailRow>
-            </div>
-          )}
 
           <p className="rounded-md border border-border px-4 py-3 text-sm">
             <span className="font-semibold">Lý do học viên:</span> {request.reason || "Chưa có"}
@@ -123,7 +103,7 @@ function RequestDialog({ request, staffId, onClose, onProcessed }) {
               rows={4}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
               placeholder="Nhập ghi chú trước khi duyệt hoặc từ chối..."
-              disabled={!canProcessFreeze && !canProcessResume}
+              disabled={!canProcessFreeze}
             />
           </label>
 
@@ -135,28 +115,14 @@ function RequestDialog({ request, staffId, onClose, onProcessed }) {
             {canProcessFreeze && (
               <>
                 <Button variant="outline" onClick={() => submit("REJECTED")} disabled={Boolean(savingAction)}>
-                  {savingAction === "REJECTED" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-                  Từ chối bảo lưu
+                  {savingAction === "REJECTED" ? "Đang xử lý..." : "Từ chối bảo lưu"}
                 </Button>
                 <Button onClick={() => submit("FROZEN")} disabled={Boolean(savingAction)}>
-                  {savingAction === "FROZEN" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Duyệt bảo lưu
+                  {savingAction === "FROZEN" ? "Đang xử lý..." : "Duyệt bảo lưu"}
                 </Button>
               </>
             )}
 
-            {canProcessResume && (
-              <>
-                <Button variant="outline" onClick={() => submit("FROZEN")} disabled={Boolean(savingAction)}>
-                  {savingAction === "FROZEN" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-                  Từ chối học lại
-                </Button>
-                <Button onClick={() => submit("RESUMED")} disabled={Boolean(savingAction)}>
-                  {savingAction === "RESUMED" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                  Duyệt học lại
-                </Button>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -164,10 +130,10 @@ function RequestDialog({ request, staffId, onClose, onProcessed }) {
   )
 }
 
-export default function FreezeRequests({ resumeOnly = false }) {
+export default function FreezeRequests() {
   const { user } = useAuth()
   const [requests, setRequests] = useState([])
-  const [statusFilter, setStatusFilter] = useState(resumeOnly ? "RESUME_PENDING" : "ALL")
+  const [statusFilter, setStatusFilter] = useState("ALL")
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -178,8 +144,7 @@ export default function FreezeRequests({ resumeOnly = false }) {
     setLoading(true)
     setError("")
     try {
-      const effectiveStatus = resumeOnly ? "RESUME_PENDING" : statusFilter
-      const data = await getStaffFreezeRequests(effectiveStatus === "ALL" ? undefined : effectiveStatus)
+      const data = await getStaffFreezeRequests(statusFilter === "ALL" ? undefined : statusFilter)
       setRequests(data)
     } catch (requestError) {
       setError(getErrorMessage(requestError))
@@ -188,7 +153,7 @@ export default function FreezeRequests({ resumeOnly = false }) {
     }
   }
 
-  useEffect(() => { loadData() }, [statusFilter, resumeOnly])
+  useEffect(() => { loadData() }, [statusFilter])
 
   const counts = useMemo(() => Object.fromEntries(
     statusOptions.map((status) => [
@@ -199,9 +164,9 @@ export default function FreezeRequests({ resumeOnly = false }) {
 
   const filtered = useMemo(() => {
     const keyword = search.trim().toLocaleLowerCase("vi")
-    const source = resumeOnly
-      ? requests.filter((request) => request.status === "RESUME_PENDING")
-      : requests
+    const source = requests.filter((request) =>
+      request.status === "PENDING" || request.status === "FROZEN",
+    )
     if (!keyword) return source
     return source.filter((request) =>
       [
@@ -216,12 +181,15 @@ export default function FreezeRequests({ resumeOnly = false }) {
         .filter(Boolean)
         .some((value) => value.toLocaleLowerCase("vi").includes(keyword)),
     )
-  }, [requests, resumeOnly, search])
+  }, [requests, search])
 
   const handleProcessed = (updated) => {
-    setRequests((current) => resumeOnly
-      ? current.filter((item) => item.id !== updated.id)
-      : current.map((item) => item.id === updated.id ? updated : item))
+    setRequests((current) => {
+      if (updated.status !== "PENDING" && updated.status !== "FROZEN") {
+        return current.filter((item) => item.id !== updated.id)
+      }
+      return current.map((item) => item.id === updated.id ? updated : item)
+    })
     setDialogRequest(null)
     setSuccess(`Đã xử lý yêu cầu BL-${updated.id}.`)
   }
@@ -230,24 +198,14 @@ export default function FreezeRequests({ resumeOnly = false }) {
     <>
       <div className="mb-7">
         <h1 className="mt-2 text-3xl font-bold">
-          {resumeOnly ? "Duyệt học lại sau bảo lưu" : "Duyệt bảo lưu và học lại"}
+          Duyệt bảo lưu
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Bấm vào từng yêu cầu để xem chi tiết, duyệt bảo lưu hoặc duyệt học lại sau bảo lưu.
+          Xác nhận yêu cầu bảo lưu
         </p>
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {(resumeOnly ? statusOptions.filter((status) => status.value === "RESUME_PENDING") : statusOptions).map((status) => (
-          <Card key={status.value}>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">{status.label}</p>
-              <PauseCircle className="h-5 w-5 text-primary" />
-            </div>
-            <p className="mt-4 text-3xl font-bold">{counts[status.value] || 0}</p>
-          </Card>
-        ))}
-      </div>
+      
 
       {error && <p className="mb-5 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</p>}
       {success && <p className="mb-5 flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"><CheckCircle2 className="h-5 w-5" />{success}</p>}
@@ -258,16 +216,10 @@ export default function FreezeRequests({ resumeOnly = false }) {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input id="freeze-search" className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm học viên, điện thoại, mã lớp..." />
           </div>
-          {resumeOnly ? (
-            <span className="flex h-11 items-center rounded-md border border-border bg-secondary px-3 text-sm text-muted-foreground">
-              Chờ duyệt học lại
-            </span>
-          ) : (
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-11 rounded-md border border-border bg-background px-3 text-sm outline-none">
-              <option value="ALL">Tất cả trạng thái</option>
-              {statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-            </select>
-          )}
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-11 rounded-md border border-border bg-background px-3 text-sm outline-none">
+            <option value="ALL">Tất cả trạng thái</option>
+            {statusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+          </select>
           <p className="whitespace-nowrap text-sm text-muted-foreground">{filtered.length} yêu cầu</p>
         </div>
       </Card>
@@ -298,9 +250,9 @@ export default function FreezeRequests({ resumeOnly = false }) {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {request.classroomCode} - {request.classroomName} - còn {request.remainingSession} buổi
                   </p>
-                  {request.status === "RESUME_PENDING" && (
+                  {request.status === "RESUMED" && (
                     <p className="mt-1 text-sm text-primary">
-                      Muốn học lại: {request.targetClassroomCode} - {request.targetClassroomName}, ngày {formatDate(request.resumeDate)}
+                      Đã học lại: {request.targetClassroomCode} - {request.targetClassroomName}, ngày {formatDate(request.resumeDate)}
                     </p>
                   )}
                   <p className="mt-2 text-xs text-muted-foreground">

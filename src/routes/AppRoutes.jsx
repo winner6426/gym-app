@@ -10,6 +10,7 @@ import Courses from "../pages/admin/Courses.jsx"
 import Classrooms from "../pages/admin/Classrooms.jsx"
 import Users from "../pages/admin/Users.jsx"
 import StaffDashboard from "../pages/staff/Dashboard.jsx"
+import StaffClassCancellationRequests from "../pages/staff/ClassCancellationRequests.jsx"
 import StaffFreezeRequests from "../pages/staff/FreezeRequests.jsx"
 import StaffMakeupRequests from "../pages/staff/MakeupRequests.jsx"
 import StaffPayments from "../pages/staff/Payments.jsx"
@@ -58,8 +59,8 @@ export function AppRoutes() {
         <Route path="/staff" element={<DashboardLayout />}>
           <Route index element={<StaffDashboard />} />
           <Route path="payments" element={<StaffPayments />} />
+          <Route path="cancellation-requests" element={<StaffClassCancellationRequests />} />
           <Route path="freeze-requests" element={<StaffFreezeRequests />} />
-          <Route path="resume-requests" element={<StaffFreezeRequests resumeOnly />} />
           <Route path="makeup-requests" element={<StaffMakeupRequests />} />
         </Route>
       </Route>

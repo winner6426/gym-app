@@ -1,10 +1,13 @@
-import { ArrowRight, Play } from "lucide-react"
 import { Button } from "../ui/Button.jsx"
 import { Link } from "react-router-dom"
+import { useAuth, getRoleHome } from "../../context/AuthContext.jsx"
 import heroGym from "../../assets/images/hero-gym.jpg"
 
 
 export function Hero() {
+  const { user } = useAuth()
+  const destination = user ? getRoleHome(user.role) : "/register"
+
   return (
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden">
       <div className="absolute inset-0 z-0">
@@ -27,7 +30,7 @@ export function Hero() {
           </p>
 
           <div className="flex flex-col gap-4 sm:flex-row">
-            <Link to="/register" >
+            <Link to={destination}>
               <Button size="lg">
                 Bắt đầu đăng ký
               </Button>

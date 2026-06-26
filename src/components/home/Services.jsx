@@ -36,7 +36,7 @@ export function Services() {
                 alt={service.title}
                 className="h-full w-full object-cover"
               />
-              <div className="absolute inset-0 bg-rose-900/25 " />
+              <div className="absolute inset-0 " />
               <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
                 <h3 className="text-3xl font-extrabold tracking-wide text-white sm:text-4xl">
                   {service.title}

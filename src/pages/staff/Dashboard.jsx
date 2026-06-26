@@ -130,8 +130,8 @@ function ProcessDialog({ registration, classrooms, onClose, onProcessed }) {
             <p className="text-xs font-semibold uppercase text-primary">Xác nhận đăng ký</p>
             <h2 className="mt-1 text-xl font-bold">{registration.studentName}</h2>
           </div>
-          <button className="rounded-md p-2 text-muted-foreground hover:bg-secondary" onClick={onClose} aria-label="Đóng">
-            <X className="h-5 w-5" />
+          <button className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary" onClick={onClose}>
+            Đóng
           </button>
         </div>
 
@@ -181,12 +181,10 @@ function ProcessDialog({ registration, classrooms, onClose, onProcessed }) {
 
           <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={() => submit("REJECTED")} disabled={Boolean(saving)}>
-              {saving === "REJECTED" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-              Từ chối
+              {saving === "REJECTED" ? "Đang xử lý..." : "Từ chối"}
             </Button>
             <Button onClick={() => submit("WAITING_PAYMENT")} disabled={Boolean(saving)}>
-              {saving === "WAITING_PAYMENT" ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              Xác nhận, mời đóng phí
+              {saving === "WAITING_PAYMENT" ? "Đang xử lý..." : "Xác nhận, mời đóng phí"}
             </Button>
           </div>
         </div>
@@ -222,8 +220,8 @@ function RefundDialog({ registration, staffId, onClose, onProcessed }) {
             <p className="text-xs font-semibold uppercase text-primary">Xác nhận hủy lớp</p>
             <h2 className="mt-1 text-xl font-bold">{registration.studentName}</h2>
           </div>
-          <button className="rounded-md p-2 text-muted-foreground hover:bg-secondary" onClick={onClose} aria-label="Đóng">
-            <X className="h-5 w-5" />
+          <button className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary" onClick={onClose}>
+            Đóng
           </button>
         </div>
 
@@ -247,8 +245,7 @@ function RefundDialog({ registration, staffId, onClose, onProcessed }) {
           <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={onClose} disabled={saving}>Đóng</Button>
             <Button onClick={submit} disabled={saving}>
-              {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
-              Đã gọi và xác nhận hoàn tiền
+              {saving ? "Đang xác nhận..." : "Đã gọi và xác nhận hoàn tiền"}
             </Button>
           </div>
         </div>
@@ -303,7 +300,9 @@ export default function StaffDashboard() {
 
   const handleProcessed = (updated) => {
     setRegistrations((current) =>
-      current.map((item) => item.id === updated.id ? updated : item),
+      updated.status === "CANCELLED"
+        ? current.filter((item) => item.id !== updated.id)
+        : current.map((item) => item.id === updated.id ? updated : item),
     )
     setSelectedRegistration(null)
     setRefundRegistration(null)
@@ -361,7 +360,7 @@ export default function StaffDashboard() {
                   {registration.classroomCode} - {registration.classroomName} - {registration.centerName}
                 </p>
                 <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5 text-primary" />{registration.studentPhone}</span>
+                  <span className="flex items-center gap-1">{registration.studentPhone}</span>
                   <span>Buổi phù hợp: {formatAvailabilities(registration.availabilities)}</span>
                   <span>Gửi: {formatDate(registration.registrationDate)}</span>
                 </p>

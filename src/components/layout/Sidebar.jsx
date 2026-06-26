@@ -1,17 +1,6 @@
 ﻿import {
-  Activity,
-  BookOpenCheck,
-  Building2,
-  CalendarCheck,
   Dumbbell,
-  LayoutDashboard,
   LogOut,
-  PauseCircle,
-  PlayCircle,
-  ReceiptText,
-  Search,
-  UserRound,
-  UsersRound,
   X,
 } from "lucide-react"
 import { Link, NavLink } from "react-router-dom"
@@ -20,35 +9,35 @@ import { cn } from "../../utils.js"
 
 const navigationByRole = {
   admin: [
-    { label: "Tổng quan", to: "/admin", icon: LayoutDashboard, end: true },
-    { label: "Cơ sở", to: "/admin/centers", icon: Building2 },
-    { label: "Khóa học", to: "/admin/courses", icon: BookOpenCheck },
-    { label: "Người dùng", to: "/admin/users", icon: UsersRound },
-    { label: "Lớp học", to: "/admin/classrooms", icon: CalendarCheck },
+    { label: "Tổng quan", to: "/admin", end: true },
+    { label: "Cơ sở", to: "/admin/centers" },
+    { label: "Khóa học", to: "/admin/courses" },
+    { label: "Người dùng", to: "/admin/users" },
+    { label: "Lớp học", to: "/admin/classrooms" },
   ],
   staff: [
-    { label: "Duyệt đăng kí học", to: "/staff", icon: LayoutDashboard, end: true },
-    { label: "Xác nhận học phí", to: "/staff/payments", icon: ReceiptText },
-    { label: "Duyệt bảo lưu", to: "/staff/freeze-requests", icon: PauseCircle },
-    { label: "Duyệt học lại", to: "/staff/resume-requests", icon: PlayCircle },
-    { label: "Duyệt học bù", to: "/staff/makeup-requests", icon: Search },
+    { label: "Duyệt đăng kí học", to: "/staff", end: true },
+    { label: "Xác nhận học phí", to: "/staff/payments" },
+    { label: "Duyệt hủy lớp", to: "/staff/cancellation-requests" },
+    { label: "Duyệt bảo lưu", to: "/staff/freeze-requests" },
+    { label: "Duyệt học bù", to: "/staff/makeup-requests" },
   ],
   trainer: [
-    { label: "Lớp của tôi", to: "/trainer/classes", icon: BookOpenCheck },
-    { label: "Điểm danh", to: "/trainer/attendance", icon: CalendarCheck },
+    { label: "Lớp của tôi", to: "/trainer/classes" },
+    { label: "Điểm danh", to: "/trainer/attendance" },
   ],
   member: [
-    { label: "Lớp của tôi", to: "/member/classes", icon: BookOpenCheck },
-    { label: "Học phí", to: "/member/payments", icon: ReceiptText },
-    { label: "Đăng ký học", to: "/member/course-registration", icon: UserRound },
-    { label: "Tìm lớp học bù", to: "/member/makeup-class", icon: Search },
-    { label: "Xin bảo lưu", to: "/member/reservation", icon: PauseCircle },
-    { label: "Học lại sau bảo lưu", to: "/member/resume-course", icon: PlayCircle },
+    { label: "Lớp của tôi", to: "/member/classes" },
+    { label: "Học phí", to: "/member/payments" },
+    { label: "Đăng ký học", to: "/member/course-registration" },
+    { label: "Tìm lớp học bù", to: "/member/makeup-class" },
+    { label: "Xin bảo lưu", to: "/member/reservation" },
+    { label: "Học lại sau bảo lưu", to: "/member/resume-course" },
   ],
 }
 
 const roleSections = {
-  admin: "Quản trị hệ thống",
+  admin: "Quản trị viên",
   staff: "Nhân viên trung tâm",
   trainer: "Huấn luyện viên",
   member: "Học viên",
@@ -84,7 +73,7 @@ export function Sidebar({ open, onClose }) {
             {roleSections[user.role] || "Hệ thống"}
           </p>
           <nav className="space-y-1 px-3">
-            {items.map(({ label, to, icon: Icon, end }) => (
+            {items.map(({ label, to, end }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -92,14 +81,13 @@ export function Sidebar({ open, onClose }) {
                 onClick={onClose}
                 className={({ isActive }) =>
                   cn(
-                    "flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    "flex min-h-11 items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                   )
                 }
               >
-                <Icon className="h-5 w-5 shrink-0" />
                 {label}
               </NavLink>
             ))}

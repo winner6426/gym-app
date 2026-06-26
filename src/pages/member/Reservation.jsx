@@ -157,7 +157,6 @@ export default function Reservation() {
               <h2 className="mt-4 font-bold">Điều kiện bảo lưu</h2>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
                 <li>Không có công nợ học phí.</li>
-                <li>Thời hạn tối đa một năm.</li>
                 <li>Khi học lại, lớp phụ thuộc lịch tuyển sinh và sĩ số.</li>
               </ul>
               <Button className="mt-6 w-full" disabled={saving || !selectedCardId}>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react"
-import { CalendarDays, CheckCircle2, LoaderCircle, Mail, Phone, ShieldCheck, UserRound } from "lucide-react"
+import { CheckCircle2, LoaderCircle, UserRound } from "lucide-react"
 import { Button } from "../components/ui/Button.jsx"
 import { Card } from "../components/ui/Card.jsx"
 import { Input } from "../components/ui/Input.jsx"
 import { useAuth } from "../context/AuthContext.jsx"
-import { getUserById, updateUser } from "../services/adminService.js"
+import { getProfile, updateProfile } from "../services/authService.js"
 
 const roleLabels = {
   admin: "Quản trị viên",
@@ -21,11 +21,6 @@ function getErrorMessage(error) {
   return error.response?.data?.message || error.message || "Đã có lỗi xảy ra."
 }
 
-function formatDate(value) {
-  if (!value) return "Chưa có"
-  return new Intl.DateTimeFormat("vi-VN").format(new Date(`${value}T00:00:00`))
-}
-
 export default function Profile() {
   const { user, syncUser } = useAuth()
   const [profile, setProfile] = useState(null)
@@ -39,12 +34,13 @@ export default function Profile() {
     setLoading(true)
     setError("")
     try {
-      const data = await getUserById(user.id)
-      setProfile(data)
+      const data = await getProfile()
+      const profileData = data.user || data
+      setProfile(profileData)
       setForm({
-        name: data.name || "",
-        email: data.email || "",
-        phoneNumber: data.phoneNumber || "",
+        name: profileData.name || "",
+        email: profileData.email || "",
+        phoneNumber: profileData.phoneNumber || "",
       })
       syncUser(data)
     } catch (requestError) {
@@ -75,18 +71,19 @@ export default function Profile() {
 
     setSaving(true)
     try {
-      const updated = await updateUser(user.id, {
+      const data = await updateProfile({
         name: form.name.trim(),
         email: form.email.trim(),
         phoneNumber: form.phoneNumber.trim(),
       })
+      const updated = data.user || data
       setProfile(updated)
       setForm({
         name: updated.name || "",
         email: updated.email || "",
         phoneNumber: updated.phoneNumber || "",
       })
-      syncUser(updated)
+      syncUser(data)
       setSuccess("Đã lưu thay đổi hồ sơ.")
     } catch (requestError) {
       setError(getErrorMessage(requestError))

@@ -322,7 +322,7 @@ export default function Attendance() {
           </div>
 
           <Button className="mt-5" onClick={handleSave} disabled={saving}>
-            {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> :""}
             Lưu điểm danh
           </Button>
         </>

@@ -103,18 +103,6 @@ export default function MakeupRequests() {
         </p>
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {statusOptions.map((status) => (
-          <Card key={status.value}>
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">{status.label}</p>
-           
-            </div>
-            <p className="mt-4 text-3xl font-bold">{counts[status.value] || 0}</p>
-          </Card>
-        ))}
-      </div>
-
       {error && <p className="mb-5 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</p>}
       {success && <p className="mb-5 flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"><CheckCircle2 className="h-5 w-5" />{success}</p>}
 
@@ -159,18 +147,18 @@ export default function MakeupRequests() {
               {request.status === "PENDING" && (
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button variant="outline" disabled={processingId === request.id} onClick={() => handleProcess(request, "REJECTED")}>
-                    {processingId === request.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                    {processingId === request.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : ""}
                     Từ chối
                   </Button>
                   <Button disabled={processingId === request.id} onClick={() => handleProcess(request, "APPROVED")}>
-                    {processingId === request.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    {processingId === request.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : ""}
                     Duyệt
                   </Button>
                 </div>
               )}
               {request.status === "APPROVED" && (
                 <Button variant="outline" disabled={processingId === request.id} onClick={() => handleProcess(request, "COMPLETED")}>
-                  {processingId === request.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  {processingId === request.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : ""}
                   Đã học bù
                 </Button>
               )}

@@ -217,8 +217,8 @@ function ClassroomDialog({ classroom, centers, courses, trainers, onClose, onSav
             <p className="text-xs font-semibold uppercase text-primary">Quản lý lớp học</p>
             <h2 className="mt-1 text-xl font-bold">{classroom ? "Cập nhật lớp học" : "Mở lớp mới"}</h2>
           </div>
-          <button type="button" className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={onClose} aria-label="Đóng">
-            <X className="h-5 w-5" />
+          <button type="button" className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={onClose}>
+            Đóng
           </button>
         </div>
 
@@ -259,7 +259,7 @@ function ClassroomDialog({ classroom, centers, courses, trainers, onClose, onSav
                 <p className="mt-1 text-xs text-muted-foreground">Mỗi thứ hiện chỉ khai báo một khung giờ.</p>
               </div>
               <Button type="button" variant="outline" onClick={addSchedule}>
-                <Plus className="h-4 w-4" />Thêm lịch
+                Thêm lịch
               </Button>
             </div>
 
@@ -271,8 +271,8 @@ function ClassroomDialog({ classroom, centers, courses, trainers, onClose, onSav
                   </SelectField>
                   <Input id={`schedule-start-${index}`} type="time" label="Bắt đầu" value={schedule.startTime} onChange={(event) => updateSchedule(index, "startTime", event.target.value)} />
                   <Input id={`schedule-end-${index}`} type="time" label="Kết thúc" value={schedule.endTime} onChange={(event) => updateSchedule(index, "endTime", event.target.value)} />
-                  <button type="button" className="flex h-11 items-center justify-center rounded-md border border-border px-3 text-muted-foreground hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40" onClick={() => removeSchedule(index)} disabled={form.schedules.length === 1} aria-label="Xóa lịch">
-                    <Trash2 className="h-4 w-4" />
+                  <button type="button" className="flex h-11 items-center justify-center rounded-md border border-border px-3 text-sm text-muted-foreground hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40" onClick={() => removeSchedule(index)} disabled={form.schedules.length === 1}>
+                    Xóa
                   </button>
                 </div>
               ))}
@@ -289,8 +289,7 @@ function ClassroomDialog({ classroom, centers, courses, trainers, onClose, onSav
           <div className="flex justify-end gap-3 border-t border-border pt-4">
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Hủy</Button>
             <Button type="submit" disabled={saving || !trainers.length || !courses.length || !centers.length}>
-              {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}
-              {classroom ? "Lưu thay đổi" : "Mở lớp"}
+              {saving ? "Đang lưu..." : classroom ? "Lưu thay đổi" : "Mở lớp"}
             </Button>
           </div>
         </form>
@@ -389,7 +388,7 @@ export default function Classrooms() {
           <p className="mt-2 text-sm text-muted-foreground">Trạng thái lớp được tự động xác định theo ngày chiêu sinh và ngày học.</p>
         </div>
         <Button onClick={() => { setEditingClassroom(null); setDialogOpen(true) }} disabled={!canOpenClass}>
-          <Plus className="h-4 w-4" />Mở lớp mới
+          Mở lớp mới
         </Button>
       </div>
 

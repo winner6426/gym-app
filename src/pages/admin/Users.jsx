@@ -195,7 +195,7 @@ function Modal({ title, onClose, children }) {
       <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div><p className="text-xs font-semibold uppercase text-primary">Quản trị tài khoản</p><h2 className="mt-1 text-xl font-bold">{title}</h2></div>
-          <button type="button" className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={onClose} aria-label="Đóng"><X className="h-5 w-5" /></button>
+          <button type="button" className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground" onClick={onClose}>Đóng</button>
         </div>
         <div className="p-5">{children}</div>
       </div>
@@ -208,7 +208,7 @@ function DialogActions({ onClose, saving, submitLabel }) {
     <div className="flex justify-end gap-3 border-t border-border pt-4">
       <Button type="button" variant="outline" onClick={onClose} disabled={saving}>Hủy</Button>
       <Button type="submit" disabled={saving}>
-        {saving && <LoaderCircle className="h-4 w-4 animate-spin" />}{submitLabel}
+        {saving ? "Đang lưu..." : submitLabel}
       </Button>
     </div>
   )

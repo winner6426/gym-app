@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Dumbbell, LogOut, Menu, X } from "lucide-react"
 import { Link } from "react-router-dom"
-import { useAuth } from "../../context/AuthContext.jsx"
+import { useAuth, getRoleHome } from "../../context/AuthContext.jsx"
 import { Button } from "../ui/Button.jsx"
 
 const navLinks = [
@@ -18,14 +18,18 @@ function getInitial(user) {
 
 function AccountMenu({ user, onLogout }) {
   return (
-    <div className="items-center justify-between absolute right-0 top-full mt-3 h-15 w-30 rounded-lg border border-border p-2 shadow-xl ">
-      
+    <div className="items-center justify-between absolute right-0 top-full mt-3 w-44 rounded-lg border border-border bg-card p-2 shadow-xl">
+      <Link
+        to={getRoleHome(user.role)}
+        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition-colors hover:bg-secondary"
+      >
+        Vào hệ thống
+      </Link>
       <button
         type="button"
         onClick={onLogout}
-        className="mt-2 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition-colors hover:bg-red-500/10"
+        className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition-colors hover:bg-red-500/10"
       >
-      
         Đăng xuất
       </button>
     </div>
@@ -123,7 +127,13 @@ export function Navigation() {
                     <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
-                <Button type="button" variant="outline" className="mt-4 w-full text-red-300" onClick={handleLogout}>
+                <Link
+                  to={getRoleHome(user.role)}
+                  onClick={() => setIsOpen(false)}
+                >
+                  <Button className="mt-3 w-full">Vào hệ thống</Button>
+                </Link>
+                <Button type="button" variant="outline" className="mt-2 w-full text-red-300" onClick={handleLogout}>
                   <LogOut className="h-4 w-4" />
                   Đăng xuất
                 </Button>

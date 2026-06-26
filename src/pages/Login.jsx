@@ -110,11 +110,7 @@ export default function Login() {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-4 text-sm">
-                  <a href="#" className="-translate-x font-medium text-primary transition-colors hover:text-accent">
-                    Quên mật khẩu?
-                  </a>
-                </div>
+                
 
                 <ErrorMessage message={error} />
 
