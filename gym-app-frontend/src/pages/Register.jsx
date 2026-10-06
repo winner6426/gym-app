@@ -82,7 +82,7 @@ export default function Register() {
 
     
 
-        <div className="mx-auto flex w-full max-w-xl flex-1 items-center py-10">
+        <div className="mx-auto w-full max-w-xl flex-1 items-center py-10">
           <Link
             to="/"
             className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
