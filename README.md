@@ -66,8 +66,8 @@ database `postgres`:
 CREATE DATABASE "gym-app";
 ```
 
-Cấu hình mặc định dùng `localhost:5432`, user `postgres`, mật khẩu `123456`.
-Nếu database của bạn khác, đặt các biến môi trường tại terminal chạy backend:
+Cấu hình mặc định dùng `localhost:5432`, user `postgres`. Mật khẩu không
+được lưu trong source; đặt các biến môi trường tại terminal chạy backend:
 
 ```powershell
 $env:SPRING_DATASOURCE_URL = 'jdbc:postgresql://localhost:5432/gym-app'

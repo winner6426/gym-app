@@ -6,8 +6,8 @@ và kết nối mạng để tải image, dependency Maven và npm.
 
 ## Chuẩn bị
 
-Chạy tại thư mục gốc `gym-app`. Có thể dùng cấu hình mặc định hoặc tạo file
-`.env` để tùy chỉnh cổng, database và JWT:
+Chạy tại thư mục gốc `gym-app`. Tạo file `.env` để đặt mật khẩu database
+bắt buộc; có thể tùy chỉnh thêm cổng, database và JWT.
 
 Tạo `.env` ở thư mục gốc với các giá trị bạn muốn thay đổi, ví dụ:
 
@@ -16,11 +16,13 @@ FRONTEND_PORT=5173
 BACKEND_PORT=8080
 DB_NAME=gym-app
 DB_USER=postgres
-DB_PASSWORD=123456
+DB_PASSWORD=<mat-khau-database-cua-ban>
 ```
 
 Đây là file `.env` ở thư mục gốc, riêng với file `.env` của frontend khi chạy
-Vite trực tiếp. Các mật khẩu và khóa mặc định chỉ dành cho chạy local.
+Vite trực tiếp. Thay giá trị trong dấu `<...>` bằng mật khẩu bạn chọn;
+không commit `.env`. Compose sẽ báo lỗi nếu chưa đặt `DB_PASSWORD`.
+Khóa JWT mặc định chỉ dành cho chạy local.
 Các biến bổ sung được mô tả trong [cấu hình](docs/CONFIGURATION.md).
 
 ## Chỉ build image

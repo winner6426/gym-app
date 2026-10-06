@@ -18,7 +18,8 @@ terminal chạy Maven hoặc truyền qua cấu hình container.
 | `SERVER_PORT` | `8080` |
 | `SPRING_DATASOURCE_URL` | Ghi đè toàn bộ JDBC URL |
 | `SPRING_DATASOURCE_USERNAME` | Ghi đè user mặc định `postgres` |
-| `SPRING_DATASOURCE_PASSWORD` | Ghi đè mật khẩu mặc định `123456` |
+| `SPRING_DATASOURCE_PASSWORD` | Đặt mật khẩu database qua biến môi trường, không có giá trị mặc định |
+| `DB_PASSWORD` | Mật khẩu database khi không ghi đè bằng `SPRING_DATASOURCE_PASSWORD`; bắt buộc trong Compose |
 | `JWT_SECRET` | Khóa Base64; cấu hình có khóa mẫu phục vụ local |
 | `JWT_EXPIRATION_MS` | `86400000` (24 giờ) |
 | `SPRING_JPA_HIBERNATE_DDL_AUTO` | Ghi đè chế độ `update` hiện tại |
@@ -52,7 +53,7 @@ nếu dùng image, build lại frontend.
 | `BACKEND_PORT` | `8080` |
 | `DB_NAME` | `gym-app` |
 | `DB_USER` | `postgres` |
-| `DB_PASSWORD` | `123456` |
+| `DB_PASSWORD` | Bắt buộc đặt, không có giá trị mặc định |
 | `VITE_API_URL` | `/api` |
 | `JWT_EXPIRATION_MS` | `86400000` |
 | `JWT_SECRET` | Khóa Base64 mẫu |
