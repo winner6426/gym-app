@@ -1,0 +1,10 @@
+.git
+.git-backup
+.idea
+.vscode
+.agents
+.codex
+target
+.env
+.env.*
+*.log
