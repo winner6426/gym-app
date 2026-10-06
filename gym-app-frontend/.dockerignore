@@ -1,0 +1,12 @@
+.git
+.git-backup
+.idea
+.vscode
+.agents
+.codex
+node_modules
+dist
+dist-ssr
+.env
+.env.*
+*.log
